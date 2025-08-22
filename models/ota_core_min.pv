@@ -1,0 +1,111 @@
+(* Canale pubblico *)
+free c : channel.
+
+(* Chiavi simmetriche tipizzate *)
+type key.
+type result.	(* result of check signature *)
+fun tc_key_bitstring(key) : bitstring [typeConverter].
+
+(* Symmetric Key Authenticated Encryption with Additional Data *)
+fun aead_enc(key, bitstring, bitstring, bitstring): bitstring.
+(* Symmetric Key Authenticated Encryption with Additional Data Decryption Rule *)
+reduc forall k: key, m: bitstring, n: bitstring, ad: bitstring; aead_dec(k, aead_enc(k, m, n, ad), n, ad) = m.
+(* Symmetric Key Authenticated Encryption with Additional Data Decryption Validation Rule *)
+reduc forall k: key, m: bitstring, n: bitstring, ad: bitstring;
+	aead_dec_validate(k, aead_enc(k, m, n, ad), n, ad) = true.
+
+(* Hash astratto *)
+fun hash(bitstring) : bitstring.
+
+(* MAC applicativo astratto *)
+fun mac(key, bitstring) : bitstring.
+fun ok(): result.
+reduc forall k: key, m: bitstring;
+  checkmac(mac(k, m), m, tc_key_bitstring(k)) = ok().
+
+(* Firme astratte *)
+fun sign(key, bitstring) : bitstring.
+reduc forall k: key, m: bitstring;
+  sign_verif(tc_key_bitstring(k), sign(k, m), m) = ok().
+
+(* Tag e AAD *)
+free TAG_QI  : bitstring.
+free TAG_QIR : bitstring.
+free TAG_DL  : bitstring.
+free AD_CASE : bitstring.
+
+(* Eventi *)
+event CaseBegin(bitstring, bitstring, bitstring).
+event CaseEnd(bitstring, bitstring, bitstring).
+event QuerySent(bitstring, bitstring, bitstring, bitstring, bitstring).
+event QueryAnsweredP(bitstring).
+event DownloadStart(bitstring, bitstring, bitstring).
+event DownloadDone(bitstring, bitstring, bitstring, bitstring).
+event FirmwareReceived(bitstring, bitstring, bitstring).
+
+(* Dati demo *)
+free VID   : bitstring.
+free PID   : bitstring.
+free curSV : bitstring.
+free newSV : bitstring.
+free URI   : bitstring.
+free FWIMG : bitstring [private].  (* Cambiato da 'new' a 'free [private]' *)
+
+(* Provider *)
+let Provider(provId: bitstring, kcs: key) =
+  (* riceve la query: <nonce, ciphertext> *)
+  in(c, (nQ:bitstring, ctQ:bitstring));
+  let msg = aead_dec(kcs, ctQ, nQ, AD_CASE) in
+  let (=TAG_QI, vid:bitstring, pid:bitstring, csv:bitstring, macq:bitstring) = msg in
+  if checkmac(macq, (TAG_QI, vid, pid, csv), tc_key_bitstring(kcs)) = ok() then
+    event QueryAnsweredP(provId);
+    (* risposta *)
+    let resp = (TAG_QIR, newSV, mac(kcs, (TAG_QIR, newSV))) in
+    new nR: bitstring;
+    out(c, (nR, aead_enc(kcs, resp, nR, AD_CASE)));
+    (* download stub *)
+    event DownloadStart(provId, provId, URI);
+    let dl = (TAG_DL, URI, FWIMG, mac(kcs, (TAG_DL, URI, FWIMG))) in
+    new nD: bitstring;
+    out(c, (nD, aead_enc(kcs, dl, nD, AD_CASE)));
+    0
+  else 0.
+
+(* Requestor *)
+let Requestor(reqId: bitstring, provId: bitstring, kcs: key) =
+  event CaseBegin(reqId, provId, newSV);
+  event QuerySent(reqId, provId, VID, PID, curSV);
+  let q = (TAG_QI, VID, PID, curSV, mac(kcs, (TAG_QI, VID, PID, curSV))) in
+  new nQ: bitstring;
+  out(c, (nQ, aead_enc(kcs, q, nQ, AD_CASE)));
+  (* risposta *)
+  in(c, (nR:bitstring, ctR:bitstring));
+  let r = aead_dec(kcs, ctR, nR, AD_CASE) in
+  let (=TAG_QIR, nsv:bitstring, macr:bitstring) = r in
+  if checkmac(macr, (TAG_QIR, nsv), tc_key_bitstring(kcs)) = ok() then
+    (* download *)
+    in(c, (nD:bitstring, ctD:bitstring));
+    let dl = aead_dec(kcs, ctD, nD, AD_CASE) in
+    let (=TAG_DL, uri2:bitstring, fw:bitstring, macd:bitstring) = dl in
+    if checkmac(macd, (TAG_DL, uri2, fw), tc_key_bitstring(kcs)) = ok() then
+      event DownloadDone(reqId, provId, uri2, fw);
+      event FirmwareReceived(reqId, provId, fw);
+      event CaseEnd(reqId, provId, nsv);
+      0
+    else 0
+  else 0.
+
+(* Confidenzialita del firmware trasferito *)
+query attacker(FWIMG).
+
+(* Autenticita di alto livello *)
+query r:bitstring, p:bitstring, f:bitstring;
+  event(FirmwareReceived(r, p, f)) ==> event(QueryAnsweredP(p)).
+
+process
+  new kcs : key;
+  new ReqId : bitstring;
+  new ProvId: bitstring;
+  ( Requestor(ReqId, ProvId, kcs)
+  | Provider(ProvId, kcs) )
+

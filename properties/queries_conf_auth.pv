@@ -1,0 +1,12 @@
+(* properties/queries_conf_auth.pv *)
+include "scenarios/main_ota_standard_case.pv".
+
+(* CONFIDENTIALITY: the attacker must not derive the firmware content *)
+query attacker(FWIMG).
+
+(* AUTHENTICITY (flow correctness): every FirmwareReceived must be caused by a QueryAnswered *)
+query reqId:bitstring, provId:bitstring, fw:bitstring;
+  event(FirmwareReceived(reqId, provId, fw)) ==> 
+  (exists nsv:bitstring, tok:bitstring, uri:bitstring; 
+   event(QueryAnswered(provId, provId, nsv, tok, uri))).
+

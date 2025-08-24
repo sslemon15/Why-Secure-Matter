@@ -1,8 +1,9 @@
 (* Canale pubblico *)
 free c : channel.
-
 (* Chiavi simmetriche tipizzate *)
 type key.
+type pkey.	(* public key *)
+type skey.	(* private key *)
 type result.	(* result of check signature *)
 fun tc_key_bitstring(key) : bitstring [typeConverter].
 
@@ -23,10 +24,16 @@ fun ok(): result.
 reduc forall k: key, m: bitstring;
   checkmac(mac(k, m), m, tc_key_bitstring(k)) = ok().
 
+
+
 (* Firme astratte *)
 fun sign(key, bitstring) : bitstring.
 reduc forall k: key, m: bitstring;
   sign_verif(tc_key_bitstring(k), sign(k, m), m) = ok().
+
+(* OTA Provider selection (Matter §11.20.3.1). Since provider selection need not rely on AnnounceOTAProvider,
+I abstract that the OTA Requestor already holds the DefaultOTAProviders list
+(one entry per Fabric) and chooses the Provider to query from there. *)
 
 (* Tag e AAD *)
 free TAG_QI  : bitstring.

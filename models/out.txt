@@ -1,0 +1,249 @@
+Process 0 (that is, the initial process):
+{1}new k_i2r: key;
+{2}new k_r2i: key;
+{3}new ReqId: bitstring;
+{4}new ProvId: bitstring;
+{5}new SESSID: bitstring;
+{6}new SRC_CTX: bitstring;
+(
+    {7}let reqId: bitstring = ReqId in
+    {8}let provId: bitstring = ProvId in
+    {9}let k_i2r_1: key = k_i2r in
+    {10}let k_r2i_1: key = k_r2i in
+    {11}let sid_1: bitstring = SESSID in
+    {12}let src_ctx: bitstring = SRC_CTX in
+    {13}event CaseBegin(reqId,provId,newSV);
+    {14}event QuerySent(reqId,provId,VID,PID,curSV);
+    {15}phase 1;
+    {16}let q: bitstring = M_QI(VID,PID,curSV) in
+    {17}new ctr_i2r1: bitstring;
+    {18}let aadQ: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctr_i2r1,nil,nil) in
+    {19}let nQ: bitstring = nonce(SECFLAGS_UNICAST,ctr_i2r1,src_ctx) in
+    {20}event SendI2R(sid_1,ctr_i2r1,q);
+    {21}out(c, (aadQ,aead_enc(k_i2r_1,q,nQ,aadQ)));
+    {22}phase 2;
+    {23}in(c, (aadR: bitstring,ctR: bitstring));
+    {24}let (mfR: bitstring,sidR: bitstring,sfR: bitstring,ctrR: bitstring,srcR: bitstring,dstR: bitstring) = aadR in
+    {25}let nR: bitstring = nonce(sfR,ctrR,src_ctx) in
+    {26}let r: bitstring = aead_dec(k_r2i_1,ctR,nR,aadR) in
+    {27}let M_QIR(nsv: bitstring) = r in
+    {28}event RecvR2I(sidR,ctrR,r);
+    {29}phase 3;
+    {30}let q2: bitstring = M_QI(VID,PID,curSV) in
+    {31}new ctr_i2r2: bitstring;
+    {32}let aadQ2: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctr_i2r2,nil,nil) in
+    {33}let nQ2: bitstring = nonce(SECFLAGS_UNICAST,ctr_i2r2,src_ctx) in
+    {34}event SendI2R(sid_1,ctr_i2r2,q2);
+    {35}out(c, (aadQ2,aead_enc(k_i2r_1,q2,nQ2,aadQ2)));
+    {36}phase 4;
+    {37}in(c, (aadR2: bitstring,ctR2: bitstring));
+    {38}let (mfR2: bitstring,sidR2: bitstring,sfR2: bitstring,ctrR2: bitstring,srcR2: bitstring,dstR2: bitstring) = aadR2 in
+    {39}let nR2: bitstring = nonce(sfR2,ctrR2,src_ctx) in
+    {40}let r2: bitstring = aead_dec(k_r2i_1,ctR2,nR2,aadR2) in
+    {41}let M_QIR(nsv2: bitstring) = r2 in
+    {42}event RecvR2I(sidR2,ctrR2,r2);
+    {43}phase 5;
+    {44}in(c, (aadD: bitstring,ctD: bitstring));
+    {45}let (mfD: bitstring,sidD: bitstring,sfD: bitstring,ctrD: bitstring,srcD: bitstring,dstD: bitstring) = aadD in
+    {46}let nD: bitstring = nonce(sfD,ctrD,src_ctx) in
+    {47}let dl: bitstring = aead_dec(k_r2i_1,ctD,nD,aadD) in
+    {48}let M_DL(uri2: bitstring,fw: bitstring,digest: bitstring) = dl in
+    {49}event RecvR2I(sidD,ctrD,dl);
+    {50}event ReachedPhase5;
+    {51}if (hash(fw) = digest) then
+    {52}event DownloadDone(reqId,provId,uri2,fw);
+    {53}event FirmwareReceived(reqId,provId,fw);
+    {54}event FirmwareReceivedP(provId);
+    {55}event CaseEnd(reqId,provId,nsv2)
+) | (
+    {56}let provId_1: bitstring = ProvId in
+    {57}let k_i2r_2: key = k_i2r in
+    {58}let k_r2i_2: key = k_r2i in
+    {59}let sid_2: bitstring = SESSID in
+    {60}let src_ctx_1: bitstring = SRC_CTX in
+    {61}phase 1;
+    {62}in(c, (aadQ_1: bitstring,ctQ: bitstring));
+    {63}let (mfQ: bitstring,sidQ: bitstring,sfQ: bitstring,ctrQ: bitstring,srcQ: bitstring,dstQ: bitstring) = aadQ_1 in
+    {64}let nQ_1: bitstring = nonce(sfQ,ctrQ,src_ctx_1) in
+    {65}let msg: bitstring = aead_dec(k_i2r_2,ctQ,nQ_1,aadQ_1) in
+    {66}let M_QI(vid: bitstring,pid: bitstring,csv: bitstring) = msg in
+    {67}event RecvI2R(sidQ,ctrQ,msg);
+    {68}event QueryAnsweredP(provId_1);
+    {69}phase 2;
+    {70}let resp: bitstring = M_QIR(newSV) in
+    {71}new ctr_r2i1: bitstring;
+    {72}let aadR_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctr_r2i1,nil,nil) in
+    {73}let nR_1: bitstring = nonce(SECFLAGS_UNICAST,ctr_r2i1,src_ctx_1) in
+    {74}event SendR2I(sid_2,ctr_r2i1,resp);
+    {75}out(c, (aadR_1,aead_enc(k_r2i_2,resp,nR_1,aadR_1)));
+    {76}phase 3;
+    {77}in(c, (aadQ2_1: bitstring,ctQ2: bitstring));
+    {78}let (mfQ2: bitstring,sidQ2: bitstring,sfQ2: bitstring,ctrQ2: bitstring,srcQ2: bitstring,dstQ2: bitstring) = aadQ2_1 in
+    {79}let nQ2_1: bitstring = nonce(sfQ2,ctrQ2,src_ctx_1) in
+    {80}let msg2: bitstring = aead_dec(k_i2r_2,ctQ2,nQ2_1,aadQ2_1) in
+    {81}let M_QI(vid2: bitstring,pid2: bitstring,csv2: bitstring) = msg2 in
+    {82}event RecvI2R(sidQ2,ctrQ2,msg2);
+    {83}event QueryAnsweredP(provId_1);
+    {84}phase 4;
+    {85}let resp2: bitstring = M_QIR(newSV) in
+    {86}new ctr_r2i3: bitstring;
+    {87}let aadR2_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctr_r2i3,nil,nil) in
+    {88}let nR2_1: bitstring = nonce(SECFLAGS_UNICAST,ctr_r2i3,src_ctx_1) in
+    {89}event SendR2I(sid_2,ctr_r2i3,resp2);
+    {90}out(c, (aadR2_1,aead_enc(k_r2i_2,resp2,nR2_1,aadR2_1)));
+    {91}phase 5;
+    {92}event DownloadStart(provId_1,provId_1,URI);
+    {93}let digest_1: bitstring = hash(FWIMG) in
+    {94}let dl_1: bitstring = M_DL(URI,FWIMG,digest_1) in
+    {95}new ctr_r2i2: bitstring;
+    {96}let aadD_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctr_r2i2,nil,nil) in
+    {97}let nD_1: bitstring = nonce(SECFLAGS_UNICAST,ctr_r2i2,src_ctx_1) in
+    {98}event SendR2I(sid_2,ctr_r2i2,dl_1);
+    {99}out(c, (aadD_1,aead_enc(k_r2i_2,dl_1,nD_1,aadD_1)));
+    {100}event ReachedPhase5
+)
+
+--  Process 1 (that is, process 0, with new and let moved downwards):
+{6}new SRC_CTX: bitstring;
+{5}new SESSID: bitstring;
+{4}new ProvId: bitstring;
+{2}new k_r2i: key;
+{1}new k_i2r: key;
+(
+    {8}let provId: bitstring = ProvId in
+    {3}new ReqId: bitstring;
+    {7}let reqId: bitstring = ReqId in
+    {13}event CaseBegin(reqId,provId,newSV);
+    {14}event QuerySent(reqId,provId,VID,PID,curSV);
+    {15}phase 1;
+    {17}new ctr_i2r1: bitstring;
+    {16}let q: bitstring = M_QI(VID,PID,curSV) in
+    {11}let sid_1: bitstring = SESSID in
+    {20}event SendI2R(sid_1,ctr_i2r1,q);
+    {12}let src_ctx: bitstring = SRC_CTX in
+    {19}let nQ: bitstring = nonce(SECFLAGS_UNICAST,ctr_i2r1,src_ctx) in
+    {18}let aadQ: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctr_i2r1,nil,nil) in
+    {9}let k_i2r_1: key = k_i2r in
+    {21}out(c, (aadQ,aead_enc(k_i2r_1,q,nQ,aadQ)));
+    {22}phase 2;
+    {23}in(c, (aadR: bitstring,ctR: bitstring));
+    {24}let (mfR: bitstring,sidR: bitstring,sfR: bitstring,ctrR: bitstring,srcR: bitstring,dstR: bitstring) = aadR in
+    {25}let nR: bitstring = nonce(sfR,ctrR,src_ctx) in
+    {10}let k_r2i_1: key = k_r2i in
+    {26}let r: bitstring = aead_dec(k_r2i_1,ctR,nR,aadR) in
+    {27}let M_QIR(nsv: bitstring) = r in
+    {28}event RecvR2I(sidR,ctrR,r);
+    {29}phase 3;
+    {31}new ctr_i2r2: bitstring;
+    {30}let q2: bitstring = M_QI(VID,PID,curSV) in
+    {34}event SendI2R(sid_1,ctr_i2r2,q2);
+    {33}let nQ2: bitstring = nonce(SECFLAGS_UNICAST,ctr_i2r2,src_ctx) in
+    {32}let aadQ2: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctr_i2r2,nil,nil) in
+    {35}out(c, (aadQ2,aead_enc(k_i2r_1,q2,nQ2,aadQ2)));
+    {36}phase 4;
+    {37}in(c, (aadR2: bitstring,ctR2: bitstring));
+    {38}let (mfR2: bitstring,sidR2: bitstring,sfR2: bitstring,ctrR2: bitstring,srcR2: bitstring,dstR2: bitstring) = aadR2 in
+    {39}let nR2: bitstring = nonce(sfR2,ctrR2,src_ctx) in
+    {40}let r2: bitstring = aead_dec(k_r2i_1,ctR2,nR2,aadR2) in
+    {41}let M_QIR(nsv2: bitstring) = r2 in
+    {42}event RecvR2I(sidR2,ctrR2,r2);
+    {43}phase 5;
+    {44}in(c, (aadD: bitstring,ctD: bitstring));
+    {45}let (mfD: bitstring,sidD: bitstring,sfD: bitstring,ctrD: bitstring,srcD: bitstring,dstD: bitstring) = aadD in
+    {46}let nD: bitstring = nonce(sfD,ctrD,src_ctx) in
+    {47}let dl: bitstring = aead_dec(k_r2i_1,ctD,nD,aadD) in
+    {48}let M_DL(uri2: bitstring,fw: bitstring,digest: bitstring) = dl in
+    {49}event RecvR2I(sidD,ctrD,dl);
+    {50}event ReachedPhase5;
+    {51}if (hash(fw) = digest) then
+    {52}event DownloadDone(reqId,provId,uri2,fw);
+    {53}event FirmwareReceived(reqId,provId,fw);
+    {54}event FirmwareReceivedP(provId);
+    {55}event CaseEnd(reqId,provId,nsv2)
+) | (
+    {61}phase 1;
+    {62}in(c, (aadQ_1: bitstring,ctQ: bitstring));
+    {63}let (mfQ: bitstring,sidQ: bitstring,sfQ: bitstring,ctrQ: bitstring,srcQ: bitstring,dstQ: bitstring) = aadQ_1 in
+    {60}let src_ctx_1: bitstring = SRC_CTX in
+    {64}let nQ_1: bitstring = nonce(sfQ,ctrQ,src_ctx_1) in
+    {57}let k_i2r_2: key = k_i2r in
+    {65}let msg: bitstring = aead_dec(k_i2r_2,ctQ,nQ_1,aadQ_1) in
+    {66}let M_QI(vid: bitstring,pid: bitstring,csv: bitstring) = msg in
+    {67}event RecvI2R(sidQ,ctrQ,msg);
+    {56}let provId_1: bitstring = ProvId in
+    {68}event QueryAnsweredP(provId_1);
+    {69}phase 2;
+    {71}new ctr_r2i1: bitstring;
+    {70}let resp: bitstring = M_QIR(newSV) in
+    {59}let sid_2: bitstring = SESSID in
+    {74}event SendR2I(sid_2,ctr_r2i1,resp);
+    {73}let nR_1: bitstring = nonce(SECFLAGS_UNICAST,ctr_r2i1,src_ctx_1) in
+    {72}let aadR_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctr_r2i1,nil,nil) in
+    {58}let k_r2i_2: key = k_r2i in
+    {75}out(c, (aadR_1,aead_enc(k_r2i_2,resp,nR_1,aadR_1)));
+    {76}phase 3;
+    {77}in(c, (aadQ2_1: bitstring,ctQ2: bitstring));
+    {78}let (mfQ2: bitstring,sidQ2: bitstring,sfQ2: bitstring,ctrQ2: bitstring,srcQ2: bitstring,dstQ2: bitstring) = aadQ2_1 in
+    {79}let nQ2_1: bitstring = nonce(sfQ2,ctrQ2,src_ctx_1) in
+    {80}let msg2: bitstring = aead_dec(k_i2r_2,ctQ2,nQ2_1,aadQ2_1) in
+    {81}let M_QI(vid2: bitstring,pid2: bitstring,csv2: bitstring) = msg2 in
+    {82}event RecvI2R(sidQ2,ctrQ2,msg2);
+    {83}event QueryAnsweredP(provId_1);
+    {84}phase 4;
+    {86}new ctr_r2i3: bitstring;
+    {85}let resp2: bitstring = M_QIR(newSV) in
+    {89}event SendR2I(sid_2,ctr_r2i3,resp2);
+    {88}let nR2_1: bitstring = nonce(SECFLAGS_UNICAST,ctr_r2i3,src_ctx_1) in
+    {87}let aadR2_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctr_r2i3,nil,nil) in
+    {90}out(c, (aadR2_1,aead_enc(k_r2i_2,resp2,nR2_1,aadR2_1)));
+    {91}phase 5;
+    {92}event DownloadStart(provId_1,provId_1,URI);
+    {95}new ctr_r2i2: bitstring;
+    {93}let digest_1: bitstring = hash(FWIMG) in
+    {94}let dl_1: bitstring = M_DL(URI,FWIMG,digest_1) in
+    {98}event SendR2I(sid_2,ctr_r2i2,dl_1);
+    {97}let nD_1: bitstring = nonce(SECFLAGS_UNICAST,ctr_r2i2,src_ctx_1) in
+    {96}let aadD_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctr_r2i2,nil,nil) in
+    {99}out(c, (aadD_1,aead_enc(k_r2i_2,dl_1,nD_1,aadD_1)));
+    {100}event ReachedPhase5
+)
+
+-- Query attacker_p5(FWIMG[]) ==> event(ReachedPhase5) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 200 rules (86 with conclusion selected). Queue: 77 rules.
+400 rules inserted. Base: 394 rules (114 with conclusion selected). Queue: 147 rules.
+600 rules inserted. Base: 588 rules (123 with conclusion selected). Queue: 327 rules.
+800 rules inserted. Base: 738 rules (123 with conclusion selected). Queue: 474 rules.
+1000 rules inserted. Base: 873 rules (125 with conclusion selected). Queue: 515 rules.
+1200 rules inserted. Base: 968 rules (125 with conclusion selected). Queue: 568 rules.
+1400 rules inserted. Base: 1057 rules (126 with conclusion selected). Queue: 597 rules.
+1600 rules inserted. Base: 1151 rules (126 with conclusion selected). Queue: 589 rules.
+1800 rules inserted. Base: 1248 rules (126 with conclusion selected). Queue: 579 rules.
+2000 rules inserted. Base: 1337 rules (128 with conclusion selected). Queue: 530 rules.
+2200 rules inserted. Base: 1317 rules (128 with conclusion selected). Queue: 444 rules.
+2400 rules inserted. Base: 1321 rules (128 with conclusion selected). Queue: 356 rules.
+2600 rules inserted. Base: 1321 rules (128 with conclusion selected). Queue: 244 rules.
+2800 rules inserted. Base: 1183 rules (129 with conclusion selected). Queue: 140 rules.
+3000 rules inserted. Base: 1214 rules (132 with conclusion selected). Queue: 140 rules.
+3200 rules inserted. Base: 1258 rules (132 with conclusion selected). Queue: 222 rules.
+3400 rules inserted. Base: 1267 rules (132 with conclusion selected). Queue: 311 rules.
+3600 rules inserted. Base: 1315 rules (132 with conclusion selected). Queue: 283 rules.
+3800 rules inserted. Base: 1300 rules (136 with conclusion selected). Queue: 266 rules.
+4000 rules inserted. Base: 1323 rules (136 with conclusion selected). Queue: 248 rules.
+4200 rules inserted. Base: 1363 rules (136 with conclusion selected). Queue: 183 rules.
+4400 rules inserted. Base: 1357 rules (136 with conclusion selected). Queue: 174 rules.
+4600 rules inserted. Base: 1374 rules (136 with conclusion selected). Queue: 174 rules.
+4800 rules inserted. Base: 1409 rules (136 with conclusion selected). Queue: 121 rules.
+Starting query attacker_p5(FWIMG[]) ==> event(ReachedPhase5)
+RESULT attacker_p5(FWIMG[]) ==> event(ReachedPhase5) is true.
+-- Query event(FirmwareReceivedP(p)) ==> event(QueryAnsweredP(p)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 200 rules (86 with conclusion selected). Queue: 78 rules.
+400 rules inserted. Base: 394 rules (114 with conclusion selected). Queue: 147 rules.
+600 rules inserted. Base: 587 rules (123 with conclusion selected). Queue: 352 rules.
+800 rules inserted. Base: 728 rules (123 with conclusion selected). Queue: 457 rules.
+1000 rules inserted. Base: 864 rules (125 with conclusion selected). Queue: 592 rules.
+1200 rules inserted. Base: 1006 rules (125 with conclusion selected). Queue: 637 rules.
+1400 rules inserted. Base: 1154 rules (125 with conclusion selected). Queue: 647 rules.

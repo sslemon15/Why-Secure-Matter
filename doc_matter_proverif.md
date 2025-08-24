@@ -242,4 +242,8 @@ set traceDisplay = long.
 
 **Version**: 1.0  
 **Date**: August 2025  
+<<<<<<<< HEAD:docs/documentation.md
 **Author**: Simone Sambataro — Matter OTA Verification Project
+========
+**Author**: Simone Sambataro — Matter OTA Verification Project
+>>>>>>>> 64a862d001a5f6bc08d4f3af349bbfaca1cb4d2a:doc_matter_proverif.md

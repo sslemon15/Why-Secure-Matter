@@ -1,6 +1,0 @@
-free s : bitstring [private].
-free c : channel.
-
-query attacker(s).
-process 
-    out(c, s)

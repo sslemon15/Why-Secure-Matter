@@ -1,0 +1,1448 @@
+Linear part: No equation.
+Convergent part:
+ver_gt(NEW,CUR) = ok
+uri_ok(URI) = ok
+Completing equations...
+Completed equations:
+uri_ok(URI) = ok
+ver_gt(NEW,CUR) = ok
+Process 0 (that is, the initial process):
+{1}!
+{2}new k_i2r: key;
+{3}new k_r2i: key;
+{4}new ReqId: bitstring;
+{5}new ProvId: bitstring;
+{6}new SESSID: bitstring;
+{7}new SRC_CTX: bitstring;
+(
+    {8}new fwimg: image;
+    {9}let fwbs: bitstring = fwimg in
+    {10}let dg: bitstring = hash(fwbs) in
+    {11}let sigf: bitstring = sign(dg,sk(KM_VENDOR)) in
+    {12}let nsv: bitstring = NEW in
+    {13}event issued(fwimg,nsv);
+    {14}out(cv, (URI,dg,fwimg,sigf,nsv))
+) | (
+    {15}let reqId: bitstring = ReqId in
+    {16}let provId: bitstring = ProvId in
+    {17}let k_i2r_1: key = k_i2r in
+    {18}let k_r2i_1: key = k_r2i in
+    {19}let sid_1: bitstring = SESSID in
+    {20}let src_ctx: bitstring = SRC_CTX in
+    {21}event OTABegin(reqId,provId,CUR);
+    {22}let q: bitstring = M_QI(VID,PID,CUR) in
+    {23}new ctr_i2r1: bitstring;
+    {24}let aadQ: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctr_i2r1,nil,nil) in
+    {25}let nQ: bitstring = nonce(SECFLAGS_UNICAST,ctr_i2r1,src_ctx) in
+    {26}event SendI2R(sid_1,ctr_i2r1,q);
+    {27}event QuerySent(reqId,provId,VID,PID,CUR);
+    {28}out(net, (aadQ,aead_enc(k_i2r_1,q,nQ,aadQ)));
+    {29}in(net, (aadR: bitstring,ctR: bitstring));
+    {30}let (mfR: bitstring,sidR: bitstring,sfR: bitstring,ctrR: bitstring,srcR: bitstring,dstR: bitstring) = aadR in
+    {31}let nR: bitstring = nonce(sfR,ctrR,src_ctx) in
+    {32}if (aead_dec_validate(k_r2i_1,ctR,nR,aadR) = ok) then
+    {33}let r: bitstring = aead_dec(k_r2i_1,ctR,nR,aadR) in
+    {34}if (is_QI_AVAIL(r) = ok) then
+    {35}let QI_AVAIL(nsv_1: bitstring,utok: bitstring,dly: bitstring,uri_hint: bitstring,vstr: string) = r in
+    {36}event RecvR2I(sidR,ctrR,r);
+    {37}if (ver_gt(nsv_1,CUR) = ok) then
+    {38}event VersionEligible(CUR,nsv_1);
+    {39}if (uri_ok(uri_hint) = ok) then
+    {40}in(net, (aadD: bitstring,ctD: bitstring));
+    {41}let (mfD: bitstring,sidD: bitstring,sfD: bitstring,ctrD: bitstring,srcD: bitstring,dstD: bitstring) = aadD in
+    {42}let nD: bitstring = nonce(sfD,ctrD,src_ctx) in
+    {43}if (aead_dec_validate(k_r2i_1,ctD,nD,aadD) = ok) then
+    {44}let dl: bitstring = aead_dec(k_r2i_1,ctD,nD,aadD) in
+    {45}let M_DL(fw: image,digest: bitstring,sigf_1: bitstring) = dl in
+    {46}event RecvR2I(sidD,ctrD,dl);
+    {47}if (checksign(sigf_1,pk(KM_VENDOR)) = ok) then
+    {48}let m: bitstring = getmess(sigf_1) in
+    {49}if (m = hash(fw)) then
+    {50}if (digest = hash(fw)) then
+    (
+        {51}event authenticated(fw,nsv_1);
+        {52}event VersionAcceptedStrong(CUR,nsv_1);
+        {53}event DownloadDone(sidD,reqId,provId,uri_hint,fw);
+        {54}event ReadyToApply(sidD);
+        {55}let areq: bitstring = M_APPLY_REQ(utok,nsv_1) in
+        {56}new ctr_i2r2: bitstring;
+        {57}let aadA: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctr_i2r2,nil,nil) in
+        {58}let nA: bitstring = nonce(SECFLAGS_UNICAST,ctr_i2r2,src_ctx) in
+        {59}event SendI2R(sid_1,ctr_i2r2,areq);
+        {60}event ApplyReqSent(sid_1,utok,nsv_1);
+        {61}out(net, (aadA,aead_enc(k_i2r_1,areq,nA,aadA)));
+        {62}in(net, (aadAR: bitstring,ctAR: bitstring));
+        {63}let (mfAR: bitstring,sidAR: bitstring,sfAR: bitstring,ctrAR: bitstring,srcAR: bitstring,dstAR: bitstring) = aadAR in
+        {64}let nAR: bitstring = nonce(sfAR,ctrAR,src_ctx) in
+        {65}if (aead_dec_validate(k_r2i_1,ctAR,nAR,aadAR) = ok) then
+        {66}let rAR: bitstring = aead_dec(k_r2i_1,ctAR,nAR,aadAR) in
+        {67}let M_APPLY_RESP(act: bitstring,dlyA: bitstring) = rAR in
+        {68}event RecvR2I(sidAR,ctrAR,rAR);
+        {69}event ApplyRespRcv(sidAR,act);
+        {70}if (act = ACT_PROCEED) then
+        {71}event OTAEnd(reqId,provId,nsv_1);
+        {72}event endR
+    )
+    else
+        {73}if (is_QI_BUSY(r) = ok) then
+        {74}let QI_BUSY(dly2: bitstring) = r in
+        {75}event RecvR2I(sidR,ctrR,r);
+        {76}event BusyRcv(provId);
+        {77}let q2: bitstring = M_QI(VID,PID,CUR) in
+        {78}new ctr_i2r1b: bitstring;
+        {79}let aadQb: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctr_i2r1b,nil,nil) in
+        {80}let nQb: bitstring = nonce(SECFLAGS_UNICAST,ctr_i2r1b,src_ctx) in
+        {81}event RequerySameProv(provId);
+        {82}event SendI2R(sid_1,ctr_i2r1b,q2);
+        {83}out(net, (aadQb,aead_enc(k_i2r_1,q2,nQb,aadQb)));
+        {84}in(net, (aadRb: bitstring,ctRb: bitstring));
+        {85}let (mfRb: bitstring,sidRb: bitstring,sfRb: bitstring,ctrRb: bitstring,srcRb: bitstring,dstRb: bitstring) = aadRb in
+        {86}let nRb: bitstring = nonce(sfRb,ctrRb,src_ctx) in
+        {87}if (aead_dec_validate(k_r2i_1,ctRb,nRb,aadRb) = ok) then
+        {88}let rb: bitstring = aead_dec(k_r2i_1,ctRb,nRb,aadRb) in
+        {89}if (is_QI_AVAIL(rb) = ok) then
+        {90}let QI_AVAIL(nsvb: bitstring,utokb: bitstring,dlyb: bitstring,uri_hintb: bitstring,vstrb: string) = rb in
+        {91}event RecvR2I(sidRb,ctrRb,rb);
+        {92}if (ver_gt(nsvb,CUR) = ok) then
+        {93}event VersionAccepted(CUR,nsvb);
+        {94}if (uri_ok(uri_hintb) = ok) then
+        {95}in(net, (aadDb: bitstring,ctDb: bitstring));
+        {96}let (mfDb: bitstring,sidDb: bitstring,sfDb: bitstring,ctrDb: bitstring,srcDb: bitstring,dstDb: bitstring) = aadDb in
+        {97}let nDb: bitstring = nonce(sfDb,ctrDb,src_ctx) in
+        {98}if (aead_dec_validate(k_r2i_1,ctDb,nDb,aadDb) = ok) then
+        {99}let dlb: bitstring = aead_dec(k_r2i_1,ctDb,nDb,aadDb) in
+        {100}let M_DL(fwb: image,digestb: bitstring,sigfb: bitstring) = dlb in
+        {101}event RecvR2I(sidDb,ctrDb,dlb);
+        {102}if (checksign(sigfb,pk(KM_VENDOR)) = ok) then
+        {103}let mb: bitstring = getmess(sigfb) in
+        {104}if (mb = hash(fwb)) then
+        {105}if (digestb = hash(fwb)) then
+        {106}event authenticated(fwb,nsvb);
+        {107}event DownloadDone(sidDb,reqId,provId,uri_hintb,fwb);
+        {108}event ReadyToApply(sidDb);
+        {109}let areqb: bitstring = M_APPLY_REQ(utokb,nsvb) in
+        {110}new ctr_i2r2b: bitstring;
+        {111}let aadAb: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctr_i2r2b,nil,nil) in
+        {112}let nAb: bitstring = nonce(SECFLAGS_UNICAST,ctr_i2r2b,src_ctx) in
+        {113}event SendI2R(sid_1,ctr_i2r2b,areqb);
+        {114}event ApplyReqSent(sid_1,utokb,nsvb);
+        {115}out(net, (aadAb,aead_enc(k_i2r_1,areqb,nAb,aadAb)));
+        {116}in(net, (aadARb: bitstring,ctARb: bitstring));
+        {117}let (mfARb: bitstring,sidARb: bitstring,sfARb: bitstring,ctrARb: bitstring,srcARb: bitstring,dstARb: bitstring) = aadARb in
+        {118}let nARb: bitstring = nonce(sfARb,ctrARb,src_ctx) in
+        {119}if (aead_dec_validate(k_r2i_1,ctARb,nARb,aadARb) = ok) then
+        {120}let rARb: bitstring = aead_dec(k_r2i_1,ctARb,nARb,aadARb) in
+        {121}let M_APPLY_RESP(actb: bitstring,dlyAb: bitstring) = rARb in
+        {122}event RecvR2I(sidARb,ctrARb,rARb);
+        {123}event ApplyRespRcv(sidARb,actb);
+        {124}if (actb = ACT_PROCEED) then
+        {125}event OTAEnd(reqId,provId,nsvb);
+        {126}event endR
+) | (
+    {127}let provId_1: bitstring = ProvId in
+    {128}let k_i2r_2: key = k_i2r in
+    {129}let k_r2i_2: key = k_r2i in
+    {130}let sid_2: bitstring = SESSID in
+    {131}let src_ctx_1: bitstring = SRC_CTX in
+    {132}in(cv, (u: bitstring,dig: bitstring,fw_1: image,sigf_2: bitstring,nsv_2: bitstring));
+    {133}in(net, (aadQ_1: bitstring,ctQ: bitstring));
+    {134}let (mfQ: bitstring,sidQ: bitstring,sfQ: bitstring,ctrQ: bitstring,srcQ: bitstring,dstQ: bitstring) = aadQ_1 in
+    {135}let nQ_1: bitstring = nonce(sfQ,ctrQ,src_ctx_1) in
+    {136}if (aead_dec_validate(k_i2r_2,ctQ,nQ_1,aadQ_1) = ok) then
+    {137}let msg: bitstring = aead_dec(k_i2r_2,ctQ,nQ_1,aadQ_1) in
+    {138}let M_QI(vid: bitstring,pid: bitstring,csv: bitstring) = msg in
+    {139}event RecvI2R(sidQ,ctrQ,msg);
+    {140}new utok_1: bitstring;
+    {141}event TokenIssuedSID(sid_2,utok_1);
+    {142}new dlyR: bitstring;
+    {143}let vstr_1: string = nsv_2 in
+    {144}if (ver_gt(nsv_2,csv) = ok) then
+    {145}let resp: bitstring = QI_AVAIL(nsv_2,utok_1,dlyR,u,vstr_1) in
+    {146}new ctr_r2i1: bitstring;
+    {147}let aadR_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctr_r2i1,nil,nil) in
+    {148}let nR_1: bitstring = nonce(SECFLAGS_UNICAST,ctr_r2i1,src_ctx_1) in
+    {149}event SendR2I(sid_2,ctr_r2i1,resp);
+    {150}event QueryAnsweredP(sid_2,provId_1,VID,PID,nsv_2);
+    {151}out(net, (aadR_1,aead_enc(k_r2i_2,resp,nR_1,aadR_1)));
+    {152}event DownloadStart(sid_2,provId_1,u,fw_1);
+    {153}let dl_1: bitstring = M_DL(fw_1,dig,sigf_2) in
+    {154}new ctr_r2i2: bitstring;
+    {155}let aadD_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctr_r2i2,nil,nil) in
+    {156}let nD_1: bitstring = nonce(SECFLAGS_UNICAST,ctr_r2i2,src_ctx_1) in
+    {157}event SendR2I(sid_2,ctr_r2i2,dl_1);
+    {158}out(net, (aadD_1,aead_enc(k_r2i_2,dl_1,nD_1,aadD_1)));
+    {159}in(net, (aadA_1: bitstring,ctA: bitstring));
+    {160}let (mfA: bitstring,sidA: bitstring,sfA: bitstring,ctrA: bitstring,srcA: bitstring,dstA: bitstring) = aadA_1 in
+    {161}let nA_1: bitstring = nonce(sfA,ctrA,src_ctx_1) in
+    {162}if (aead_dec_validate(k_i2r_2,ctA,nA_1,aadA_1) = ok) then
+    {163}let areq_1: bitstring = aead_dec(k_i2r_2,ctA,nA_1,aadA_1) in
+    {164}let M_APPLY_REQ(tk: bitstring,nv: bitstring) = areq_1 in
+    {165}event RecvI2R(sidA,ctrA,areq_1);
+    {166}event ApplyReqRcv(sidA,tk,nv);
+    {167}if (nv = nsv_2) then
+    {168}new delay: bitstring;
+    {169}let aresp: bitstring = M_APPLY_RESP(ACT_PROCEED,delay) in
+    {170}new ctr_r2i3: bitstring;
+    {171}let aadAR_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctr_r2i3,nil,nil) in
+    {172}let nAR_1: bitstring = nonce(SECFLAGS_UNICAST,ctr_r2i3,src_ctx_1) in
+    {173}event SendR2I(sid_2,ctr_r2i3,aresp);
+    {174}event ApplyRespSent(sid_2,ACT_PROCEED);
+    {175}out(net, (aadAR_1,aead_enc(k_r2i_2,aresp,nAR_1,aadAR_1)));
+    {176}event endP
+)
+
+File "OTA_Matter_baseline.pv", line 449, characters 7-9:
+Warning: identifier sid rebound.
+File "OTA_Matter_baseline.pv", line 457, characters 7-9:
+Warning: identifier sid rebound.
+File "OTA_Matter_baseline.pv", line 467, characters 7-9:
+Warning: identifier sid rebound.
+File "OTA_Matter_baseline.pv", line 471, characters 7-9:
+Warning: identifier sid rebound.
+File "OTA_Matter_baseline.pv", line 475, characters 7-9:
+Warning: identifier sid rebound.
+File "OTA_Matter_baseline.pv", line 481, characters 7-9:
+Warning: identifier sid rebound.
+--  Process 1 (that is, process 0, with let moved downwards):
+{1}!
+{2}new k_i2r: key;
+{3}new k_r2i: key;
+{4}new ReqId: bitstring;
+{5}new ProvId: bitstring;
+{6}new SESSID: bitstring;
+{7}new SRC_CTX: bitstring;
+(
+    {8}new fwimg: image;
+    {12}let nsv: bitstring = NEW in
+    {13}event issued(fwimg,nsv);
+    {9}let fwbs: bitstring = fwimg in
+    {10}let dg: bitstring = hash(fwbs) in
+    {11}let sigf: bitstring = sign(dg,sk(KM_VENDOR)) in
+    {14}out(cv, (URI,dg,fwimg,sigf,nsv))
+) | (
+    {16}let provId: bitstring = ProvId in
+    {15}let reqId: bitstring = ReqId in
+    {21}event OTABegin(reqId,provId,CUR);
+    {23}new ctr_i2r1: bitstring;
+    {22}let q: bitstring = M_QI(VID,PID,CUR) in
+    {19}let sid_1: bitstring = SESSID in
+    {26}event SendI2R(sid_1,ctr_i2r1,q);
+    {27}event QuerySent(reqId,provId,VID,PID,CUR);
+    {20}let src_ctx: bitstring = SRC_CTX in
+    {25}let nQ: bitstring = nonce(SECFLAGS_UNICAST,ctr_i2r1,src_ctx) in
+    {24}let aadQ: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctr_i2r1,nil,nil) in
+    {17}let k_i2r_1: key = k_i2r in
+    {28}out(net, (aadQ,aead_enc(k_i2r_1,q,nQ,aadQ)));
+    {29}in(net, (aadR: bitstring,ctR: bitstring));
+    {30}let (mfR: bitstring,sidR: bitstring,sfR: bitstring,ctrR: bitstring,srcR: bitstring,dstR: bitstring) = aadR in
+    {31}let nR: bitstring = nonce(sfR,ctrR,src_ctx) in
+    {18}let k_r2i_1: key = k_r2i in
+    {32}if (aead_dec_validate(k_r2i_1,ctR,nR,aadR) = ok) then
+    {33}let r: bitstring = aead_dec(k_r2i_1,ctR,nR,aadR) in
+    {34}if (is_QI_AVAIL(r) = ok) then
+    {35}let QI_AVAIL(nsv_1: bitstring,utok: bitstring,dly: bitstring,uri_hint: bitstring,vstr: string) = r in
+    {36}event RecvR2I(sidR,ctrR,r);
+    {37}if (ver_gt(nsv_1,CUR) = ok) then
+    {38}event VersionEligible(CUR,nsv_1);
+    {39}if (uri_ok(uri_hint) = ok) then
+    {40}in(net, (aadD: bitstring,ctD: bitstring));
+    {41}let (mfD: bitstring,sidD: bitstring,sfD: bitstring,ctrD: bitstring,srcD: bitstring,dstD: bitstring) = aadD in
+    {42}let nD: bitstring = nonce(sfD,ctrD,src_ctx) in
+    {43}if (aead_dec_validate(k_r2i_1,ctD,nD,aadD) = ok) then
+    {44}let dl: bitstring = aead_dec(k_r2i_1,ctD,nD,aadD) in
+    {45}let M_DL(fw: image,digest: bitstring,sigf_1: bitstring) = dl in
+    {46}event RecvR2I(sidD,ctrD,dl);
+    {47}if (checksign(sigf_1,pk(KM_VENDOR)) = ok) then
+    {48}let m: bitstring = getmess(sigf_1) in
+    {49}if (m = hash(fw)) then
+    {50}if (digest = hash(fw)) then
+    (
+        {51}event authenticated(fw,nsv_1);
+        {52}event VersionAcceptedStrong(CUR,nsv_1);
+        {53}event DownloadDone(sidD,reqId,provId,uri_hint,fw);
+        {54}event ReadyToApply(sidD);
+        {56}new ctr_i2r2: bitstring;
+        {55}let areq: bitstring = M_APPLY_REQ(utok,nsv_1) in
+        {59}event SendI2R(sid_1,ctr_i2r2,areq);
+        {60}event ApplyReqSent(sid_1,utok,nsv_1);
+        {58}let nA: bitstring = nonce(SECFLAGS_UNICAST,ctr_i2r2,src_ctx) in
+        {57}let aadA: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctr_i2r2,nil,nil) in
+        {61}out(net, (aadA,aead_enc(k_i2r_1,areq,nA,aadA)));
+        {62}in(net, (aadAR: bitstring,ctAR: bitstring));
+        {63}let (mfAR: bitstring,sidAR: bitstring,sfAR: bitstring,ctrAR: bitstring,srcAR: bitstring,dstAR: bitstring) = aadAR in
+        {64}let nAR: bitstring = nonce(sfAR,ctrAR,src_ctx) in
+        {65}if (aead_dec_validate(k_r2i_1,ctAR,nAR,aadAR) = ok) then
+        {66}let rAR: bitstring = aead_dec(k_r2i_1,ctAR,nAR,aadAR) in
+        {67}let M_APPLY_RESP(act: bitstring,dlyA: bitstring) = rAR in
+        {68}event RecvR2I(sidAR,ctrAR,rAR);
+        {69}event ApplyRespRcv(sidAR,act);
+        {70}if (act = ACT_PROCEED) then
+        {71}event OTAEnd(reqId,provId,nsv_1);
+        {72}event endR
+    )
+    else
+        {73}if (is_QI_BUSY(r) = ok) then
+        {74}let QI_BUSY(dly2: bitstring) = r in
+        {75}event RecvR2I(sidR,ctrR,r);
+        {76}event BusyRcv(provId);
+        {78}new ctr_i2r1b: bitstring;
+        {81}event RequerySameProv(provId);
+        {77}let q2: bitstring = M_QI(VID,PID,CUR) in
+        {82}event SendI2R(sid_1,ctr_i2r1b,q2);
+        {80}let nQb: bitstring = nonce(SECFLAGS_UNICAST,ctr_i2r1b,src_ctx) in
+        {79}let aadQb: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctr_i2r1b,nil,nil) in
+        {83}out(net, (aadQb,aead_enc(k_i2r_1,q2,nQb,aadQb)));
+        {84}in(net, (aadRb: bitstring,ctRb: bitstring));
+        {85}let (mfRb: bitstring,sidRb: bitstring,sfRb: bitstring,ctrRb: bitstring,srcRb: bitstring,dstRb: bitstring) = aadRb in
+        {86}let nRb: bitstring = nonce(sfRb,ctrRb,src_ctx) in
+        {87}if (aead_dec_validate(k_r2i_1,ctRb,nRb,aadRb) = ok) then
+        {88}let rb: bitstring = aead_dec(k_r2i_1,ctRb,nRb,aadRb) in
+        {89}if (is_QI_AVAIL(rb) = ok) then
+        {90}let QI_AVAIL(nsvb: bitstring,utokb: bitstring,dlyb: bitstring,uri_hintb: bitstring,vstrb: string) = rb in
+        {91}event RecvR2I(sidRb,ctrRb,rb);
+        {92}if (ver_gt(nsvb,CUR) = ok) then
+        {93}event VersionAccepted(CUR,nsvb);
+        {94}if (uri_ok(uri_hintb) = ok) then
+        {95}in(net, (aadDb: bitstring,ctDb: bitstring));
+        {96}let (mfDb: bitstring,sidDb: bitstring,sfDb: bitstring,ctrDb: bitstring,srcDb: bitstring,dstDb: bitstring) = aadDb in
+        {97}let nDb: bitstring = nonce(sfDb,ctrDb,src_ctx) in
+        {98}if (aead_dec_validate(k_r2i_1,ctDb,nDb,aadDb) = ok) then
+        {99}let dlb: bitstring = aead_dec(k_r2i_1,ctDb,nDb,aadDb) in
+        {100}let M_DL(fwb: image,digestb: bitstring,sigfb: bitstring) = dlb in
+        {101}event RecvR2I(sidDb,ctrDb,dlb);
+        {102}if (checksign(sigfb,pk(KM_VENDOR)) = ok) then
+        {103}let mb: bitstring = getmess(sigfb) in
+        {104}if (mb = hash(fwb)) then
+        {105}if (digestb = hash(fwb)) then
+        {106}event authenticated(fwb,nsvb);
+        {107}event DownloadDone(sidDb,reqId,provId,uri_hintb,fwb);
+        {108}event ReadyToApply(sidDb);
+        {110}new ctr_i2r2b: bitstring;
+        {109}let areqb: bitstring = M_APPLY_REQ(utokb,nsvb) in
+        {113}event SendI2R(sid_1,ctr_i2r2b,areqb);
+        {114}event ApplyReqSent(sid_1,utokb,nsvb);
+        {112}let nAb: bitstring = nonce(SECFLAGS_UNICAST,ctr_i2r2b,src_ctx) in
+        {111}let aadAb: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctr_i2r2b,nil,nil) in
+        {115}out(net, (aadAb,aead_enc(k_i2r_1,areqb,nAb,aadAb)));
+        {116}in(net, (aadARb: bitstring,ctARb: bitstring));
+        {117}let (mfARb: bitstring,sidARb: bitstring,sfARb: bitstring,ctrARb: bitstring,srcARb: bitstring,dstARb: bitstring) = aadARb in
+        {118}let nARb: bitstring = nonce(sfARb,ctrARb,src_ctx) in
+        {119}if (aead_dec_validate(k_r2i_1,ctARb,nARb,aadARb) = ok) then
+        {120}let rARb: bitstring = aead_dec(k_r2i_1,ctARb,nARb,aadARb) in
+        {121}let M_APPLY_RESP(actb: bitstring,dlyAb: bitstring) = rARb in
+        {122}event RecvR2I(sidARb,ctrARb,rARb);
+        {123}event ApplyRespRcv(sidARb,actb);
+        {124}if (actb = ACT_PROCEED) then
+        {125}event OTAEnd(reqId,provId,nsvb);
+        {126}event endR
+) | (
+    {132}in(cv, (u: bitstring,dig: bitstring,fw_1: image,sigf_2: bitstring,nsv_2: bitstring));
+    {133}in(net, (aadQ_1: bitstring,ctQ: bitstring));
+    {134}let (mfQ: bitstring,sidQ: bitstring,sfQ: bitstring,ctrQ: bitstring,srcQ: bitstring,dstQ: bitstring) = aadQ_1 in
+    {131}let src_ctx_1: bitstring = SRC_CTX in
+    {135}let nQ_1: bitstring = nonce(sfQ,ctrQ,src_ctx_1) in
+    {128}let k_i2r_2: key = k_i2r in
+    {136}if (aead_dec_validate(k_i2r_2,ctQ,nQ_1,aadQ_1) = ok) then
+    {137}let msg: bitstring = aead_dec(k_i2r_2,ctQ,nQ_1,aadQ_1) in
+    {138}let M_QI(vid: bitstring,pid: bitstring,csv: bitstring) = msg in
+    {139}event RecvI2R(sidQ,ctrQ,msg);
+    {140}new utok_1: bitstring;
+    {130}let sid_2: bitstring = SESSID in
+    {141}event TokenIssuedSID(sid_2,utok_1);
+    {142}new dlyR: bitstring;
+    {144}if (ver_gt(nsv_2,csv) = ok) then
+    {146}new ctr_r2i1: bitstring;
+    {143}let vstr_1: string = nsv_2 in
+    {145}let resp: bitstring = QI_AVAIL(nsv_2,utok_1,dlyR,u,vstr_1) in
+    {149}event SendR2I(sid_2,ctr_r2i1,resp);
+    {127}let provId_1: bitstring = ProvId in
+    {150}event QueryAnsweredP(sid_2,provId_1,VID,PID,nsv_2);
+    {148}let nR_1: bitstring = nonce(SECFLAGS_UNICAST,ctr_r2i1,src_ctx_1) in
+    {147}let aadR_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctr_r2i1,nil,nil) in
+    {129}let k_r2i_2: key = k_r2i in
+    {151}out(net, (aadR_1,aead_enc(k_r2i_2,resp,nR_1,aadR_1)));
+    {152}event DownloadStart(sid_2,provId_1,u,fw_1);
+    {154}new ctr_r2i2: bitstring;
+    {153}let dl_1: bitstring = M_DL(fw_1,dig,sigf_2) in
+    {157}event SendR2I(sid_2,ctr_r2i2,dl_1);
+    {156}let nD_1: bitstring = nonce(SECFLAGS_UNICAST,ctr_r2i2,src_ctx_1) in
+    {155}let aadD_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctr_r2i2,nil,nil) in
+    {158}out(net, (aadD_1,aead_enc(k_r2i_2,dl_1,nD_1,aadD_1)));
+    {159}in(net, (aadA_1: bitstring,ctA: bitstring));
+    {160}let (mfA: bitstring,sidA: bitstring,sfA: bitstring,ctrA: bitstring,srcA: bitstring,dstA: bitstring) = aadA_1 in
+    {161}let nA_1: bitstring = nonce(sfA,ctrA,src_ctx_1) in
+    {162}if (aead_dec_validate(k_i2r_2,ctA,nA_1,aadA_1) = ok) then
+    {163}let areq_1: bitstring = aead_dec(k_i2r_2,ctA,nA_1,aadA_1) in
+    {164}let M_APPLY_REQ(tk: bitstring,nv: bitstring) = areq_1 in
+    {165}event RecvI2R(sidA,ctrA,areq_1);
+    {166}event ApplyReqRcv(sidA,tk,nv);
+    {167}if (nv = nsv_2) then
+    {168}new delay: bitstring;
+    {170}new ctr_r2i3: bitstring;
+    {169}let aresp: bitstring = M_APPLY_RESP(ACT_PROCEED,delay) in
+    {173}event SendR2I(sid_2,ctr_r2i3,aresp);
+    {174}event ApplyRespSent(sid_2,ACT_PROCEED);
+    {172}let nAR_1: bitstring = nonce(SECFLAGS_UNICAST,ctr_r2i3,src_ctx_1) in
+    {171}let aadAR_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctr_r2i3,nil,nil) in
+    {175}out(net, (aadAR_1,aead_enc(k_r2i_2,aresp,nAR_1,aadAR_1)));
+    {176}event endP
+)
+
+-- Query not attacker(sk(KM_VENDOR)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 167 rules (49 with conclusion selected). Queue: 11 rules.
+Starting query not attacker(sk(KM_VENDOR))
+RESULT not attacker(sk(KM_VENDOR)) is true.
+-- Query event(DownloadDone(sid_3,r_1,p,u_1,f)) ==> event(DownloadStart(sid_3,p,u_1,f)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 168 rules (49 with conclusion selected). Queue: 14 rules.
+Starting query event(DownloadDone(sid_3,r_1,p,u_1,f)) ==> event(DownloadStart(sid_3,p,u_1,f))
+goal reachable: b-event(DownloadStart(SESSID_1,ProvId_1,URI,fwimg_1)) -> event(DownloadDone(SESSID_1,ReqId_1,ProvId_1,URI,fwimg_1))
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+ReqId_1 = ReqId[!1 = @sid]
+ProvId_1 = ProvId[!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid_1]
+RESULT event(DownloadDone(sid_3,r_1,p,u_1,f)) ==> event(DownloadStart(sid_3,p,u_1,f)) is true.
+-- Query event(authenticated(fw_2,nv_1)) ==> event(issued(fw_2,nv_1)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 168 rules (49 with conclusion selected). Queue: 14 rules.
+Starting query event(authenticated(fw_2,nv_1)) ==> event(issued(fw_2,nv_1))
+goal reachable: b-event(issued(fwimg_1,NEW)) -> event(authenticated(fwimg_1,NEW))
+Abbreviations:
+fwimg_1 = fwimg[!1 = @sid]
+RESULT event(authenticated(fw_2,nv_1)) ==> event(issued(fw_2,nv_1)) is true.
+-- Query event(DownloadStart(sid_3,p,u_1,f)) ==> event(QueryAnsweredP(sid_3,p,vid_1,pid_1,nsv_3)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 166 rules (50 with conclusion selected). Queue: 11 rules.
+Starting query event(DownloadStart(sid_3,p,u_1,f)) ==> event(QueryAnsweredP(sid_3,p,vid_1,pid_1,nsv_3))
+goal reachable: b-event(QueryAnsweredP(SESSID_1,ProvId_1,VID[],PID[],NEW)) -> event(DownloadStart(SESSID_1,ProvId_1,URI,fwimg_1))
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+ProvId_1 = ProvId[!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid_1]
+RESULT event(DownloadStart(sid_3,p,u_1,f)) ==> event(QueryAnsweredP(sid_3,p,vid_1,pid_1,nsv_3)) is true.
+-- Query inj-event(RecvI2R(sid2,ctr2,m_1)) ==> inj-event(SendI2R(sid2,ctr2,m_1)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 174 rules (50 with conclusion selected). Queue: 17 rules.
+Starting query inj-event(RecvI2R(sid2,ctr2,m_1)) ==> inj-event(SendI2R(sid2,ctr2,m_1))
+goal reachable: b-inj-event(SendI2R(SESSID_1,ctr_i2r2_1,M_APPLY_REQ(utok_2,NEW)),@occ59_1) && b-event(@p_act(@occ40_1,((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil))))) && b-event(@p_act(@occ29_1,((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil))))) && b-inj-event(SendI2R(SESSID_1,ctr_i2r1_1,M_QI(VID[],PID[],CUR)),@occ26_1) -> inj-event(RecvI2R(SESSID_1,ctr_i2r2_1,M_APPLY_REQ(utok_2,NEW)),@occ165_1)
+The 1st, 2nd, 3rd, 4th hypotheses occur strictly before the conclusion.
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+k_r2i_3 = k_r2i[!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid_1]
+k_i2r_3 = k_i2r[!1 = @sid]
+ctr_i2r1_1 = ctr_i2r1[!1 = @sid]
+SRC_CTX_1 = SRC_CTX[!1 = @sid]
+ctr_r2i2_1 = ctr_r2i2[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+fwimg_2 = fwimg[!1 = @sid_2]
+utok_2 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+dlyR_1 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+ctr_r2i1_1 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+ctr_i2r2_1 = ctr_i2r2[ctD = aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)),aadD = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),ctR = aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)),aadR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),!1 = @sid]
+fwimg_3 = fwimg[!1 = @sid_3]
+@occ165_1 = @occ165[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+@occ59_1 = @occ59[ctD = aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)),aadD = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),ctR = aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)),aadR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),!1 = @sid]
+@occ40_1 = @occ40[!1 = @sid]
+@occ29_1 = @occ29[!1 = @sid]
+@occ26_1 = @occ26[!1 = @sid]
+goal reachable: b-inj-event(SendI2R(SESSID_1,ctr_i2r1_1,M_QI(VID[],PID[],CUR)),@occ26_1) -> inj-event(RecvI2R(SESSID_1,ctr_i2r1_1,M_QI(VID[],PID[],CUR)),@occ139_1)
+The hypothesis occurs strictly before the conclusion.
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+ctr_i2r1_1 = ctr_i2r1[!1 = @sid]
+k_i2r_3 = k_i2r[!1 = @sid]
+SRC_CTX_1 = SRC_CTX[!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid_1]
+@occ139_1 = @occ139[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+@occ26_1 = @occ26[!1 = @sid]
+RESULT inj-event(RecvI2R(sid2,ctr2,m_1)) ==> inj-event(SendI2R(sid2,ctr2,m_1)) is true.
+-- Query inj-event(RecvR2I(sid3,ctr3,n)) ==> inj-event(SendR2I(sid3,ctr3,n)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 168 rules (49 with conclusion selected). Queue: 21 rules.
+Starting query inj-event(RecvR2I(sid3,ctr3,n)) ==> inj-event(SendR2I(sid3,ctr3,n))
+goal reachable: b-inj-event(SendR2I(SESSID_1,ctr_r2i3_1,M_APPLY_RESP(ACT_PROCEED[],delay_1)),@occ173_1) && b-inj-event(SendR2I(SESSID_1,ctr_r2i2_1,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR)))),@occ157_1) && b-inj-event(SendR2I(SESSID_1,ctr_r2i1_1,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW)),@occ149_1) && b-inj-event(SendR2I(SESSID_1,ctr_r2i1_2,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW)),@occ149_2) && b-event(@p_act(@occ159_1,((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),aead_enc(k_i2r_3,M_APPLY_REQ(utok_3,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil))))) && b-inj-event(SendR2I(SESSID_1,ctr_r2i2_2,M_DL(fwimg_2,hash(fwimg_2),sign(hash(fwimg_2),sk(KM_VENDOR)))),@occ157_2) && b-inj-event(SendR2I(SESSID_1,ctr_r2i1_3,QI_AVAIL(NEW,utok_4,dlyR_3,URI,NEW)),@occ149_3) && b-inj-event(SendR2I(SESSID_1,ctr_r2i2_3,M_DL(fwimg_3,hash(fwimg_3),sign(hash(fwimg_3),sk(KM_VENDOR)))),@occ157_3) && b-inj-event(SendR2I(SESSID_1,ctr_r2i1_4,QI_AVAIL(NEW,utok_5,dlyR_4,URI,NEW)),@occ149_4) && b-inj-event(SendR2I(SESSID_1,ctr_r2i1_5,QI_AVAIL(NEW,utok_6,dlyR_5,URI,NEW)),@occ149_5) -> inj-event(RecvR2I(SESSID_1,ctr_r2i3_1,M_APPLY_RESP(ACT_PROCEED[],delay_1)),@occ68_1)
+The 1st, 2nd, 3rd, 4th, 5th, 6th, 7th, 8th, 9th, 10th hypotheses occur strictly before the conclusion.
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+k_i2r_3 = k_i2r[!1 = @sid]
+ctr_i2r1_1 = ctr_i2r1[!1 = @sid]
+SRC_CTX_1 = SRC_CTX[!1 = @sid]
+fwimg_4 = fwimg[!1 = @sid_1]
+utok_3 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_4),sk(KM_VENDOR)),fw_1 = fwimg_4,dig = hash(fwimg_4),u = URI,!1 = @sid]
+k_r2i_3 = k_r2i[!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid_2]
+ctr_r2i2_1 = ctr_r2i2[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+dlyR_2 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_4),sk(KM_VENDOR)),fw_1 = fwimg_4,dig = hash(fwimg_4),u = URI,!1 = @sid]
+ctr_r2i1_2 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_4),sk(KM_VENDOR)),fw_1 = fwimg_4,dig = hash(fwimg_4),u = URI,!1 = @sid]
+ctr_i2r2_1 = ctr_i2r2[ctD = aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)),aadD = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),ctR = aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil)),aadR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil),!1 = @sid]
+fwimg_2 = fwimg[!1 = @sid_3]
+ctr_r2i3_1 = ctr_r2i3[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_3,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+delay_1 = delay[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_3,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+fwimg_3 = fwimg[!1 = @sid_4]
+ctr_r2i2_3 = ctr_r2i2[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+fwimg_5 = fwimg[!1 = @sid_5]
+utok_6 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+dlyR_5 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+ctr_r2i1_5 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+@occ68_1 = @occ68[ctAR = aead_enc(k_r2i_3,M_APPLY_RESP(ACT_PROCEED[],delay_1),nonce(SECFLAGS_UNICAST[],ctr_r2i3_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil)),aadAR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil),ctD = aead_enc(k_r2i_3,M_DL(fwimg_3,hash(fwimg_3),sign(hash(fwimg_3),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_3,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_3,nil,nil)),aadD = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_3,nil,nil),ctR = aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_6,dlyR_5,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_5,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_5,nil,nil)),aadR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_5,nil,nil),!1 = @sid]
+@occ173_1 = @occ173[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_3,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+@occ157_1 = @occ157[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+ctr_r2i1_1 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+utok_2 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+dlyR_1 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+@occ149_1 = @occ149[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+@occ149_2 = @occ149[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_4),sk(KM_VENDOR)),fw_1 = fwimg_4,dig = hash(fwimg_4),u = URI,!1 = @sid]
+@occ159_1 = @occ159[!1 = @sid]
+ctr_r2i2_2 = ctr_r2i2[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+@occ157_2 = @occ157[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+ctr_r2i1_3 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+utok_4 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+dlyR_3 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+@occ149_3 = @occ149[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+@occ157_3 = @occ157[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+ctr_r2i1_4 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+utok_5 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+dlyR_4 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+@occ149_4 = @occ149[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+@occ149_5 = @occ149[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+goal reachable: b-inj-event(SendR2I(SESSID_1,ctr_r2i2_1,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR)))),@occ157_1) && b-inj-event(SendR2I(SESSID_1,ctr_r2i1_1,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW)),@occ149_1) && b-inj-event(SendR2I(SESSID_1,ctr_r2i1_2,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW)),@occ149_2) -> inj-event(RecvR2I(SESSID_1,ctr_r2i2_1,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR)))),@occ46_1)
+The 1st, 2nd, 3rd hypotheses occur strictly before the conclusion.
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+k_i2r_3 = k_i2r[!1 = @sid]
+ctr_i2r1_1 = ctr_i2r1[!1 = @sid]
+SRC_CTX_1 = SRC_CTX[!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid_1]
+ctr_r2i2_1 = ctr_r2i2[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+k_r2i_3 = k_r2i[!1 = @sid]
+fwimg_2 = fwimg[!1 = @sid_2]
+utok_3 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+dlyR_2 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+ctr_r2i1_2 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+@occ46_1 = @occ46[ctD = aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)),aadD = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),ctR = aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil)),aadR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil),!1 = @sid]
+@occ157_1 = @occ157[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+ctr_r2i1_1 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+utok_2 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+dlyR_1 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+@occ149_1 = @occ149[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+@occ149_2 = @occ149[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+goal reachable: b-inj-event(SendR2I(SESSID_1,ctr_r2i1_1,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW)),@occ149_1) -> inj-event(RecvR2I(SESSID_1,ctr_r2i1_1,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW)),@occ36_1)
+The hypothesis occurs strictly before the conclusion.
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+k_i2r_3 = k_i2r[!1 = @sid]
+ctr_i2r1_1 = ctr_i2r1[!1 = @sid]
+SRC_CTX_1 = SRC_CTX[!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid_1]
+ctr_r2i1_1 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+utok_2 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+dlyR_1 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+k_r2i_3 = k_r2i[!1 = @sid]
+@occ36_1 = @occ36[ctR = aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)),aadR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),!1 = @sid]
+@occ149_1 = @occ149[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+RESULT inj-event(RecvR2I(sid3,ctr3,n)) ==> inj-event(SendR2I(sid3,ctr3,n)) is true.
+-- Query inj-event(ApplyRespRcv(sid_3,act_1)) ==> inj-event(ApplyRespSent(sid_3,act_1)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 169 rules (49 with conclusion selected). Queue: 14 rules.
+Starting query inj-event(ApplyRespRcv(sid_3,act_1)) ==> inj-event(ApplyRespSent(sid_3,act_1))
+goal reachable: b-inj-event(ApplyRespSent(SESSID_1,ACT_PROCEED[]),@occ174_1) -> inj-event(ApplyRespRcv(SESSID_1,ACT_PROCEED[]),@occ69_1)
+The hypothesis occurs strictly before the conclusion.
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+k_r2i_3 = k_r2i[!1 = @sid]
+k_i2r_3 = k_i2r[!1 = @sid]
+ctr_i2r1_1 = ctr_i2r1[!1 = @sid]
+SRC_CTX_1 = SRC_CTX[!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid_1]
+utok_2 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+fwimg_2 = fwimg[!1 = @sid_2]
+ctr_r2i2_1 = ctr_r2i2[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+dlyR_1 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+ctr_r2i1_1 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+ctr_i2r2_1 = ctr_i2r2[ctD = aead_enc(k_r2i_3,M_DL(fwimg_2,hash(fwimg_2),sign(hash(fwimg_2),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)),aadD = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),ctR = aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)),aadR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),!1 = @sid]
+fwimg_3 = fwimg[!1 = @sid_3]
+delay_1 = delay[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+ctr_r2i3_1 = ctr_r2i3[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+fwimg_4 = fwimg[!1 = @sid_4]
+ctr_r2i2_2 = ctr_r2i2[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_4),sk(KM_VENDOR)),fw_1 = fwimg_4,dig = hash(fwimg_4),u = URI,!1 = @sid]
+fwimg_5 = fwimg[!1 = @sid_5]
+utok_3 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+dlyR_2 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+ctr_r2i1_2 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+@occ69_1 = @occ69[ctAR = aead_enc(k_r2i_3,M_APPLY_RESP(ACT_PROCEED[],delay_1),nonce(SECFLAGS_UNICAST[],ctr_r2i3_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil)),aadAR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil),ctD = aead_enc(k_r2i_3,M_DL(fwimg_4,hash(fwimg_4),sign(hash(fwimg_4),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil)),aadD = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil),ctR = aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil)),aadR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil),!1 = @sid]
+@occ174_1 = @occ174[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+RESULT inj-event(ApplyRespRcv(sid_3,act_1)) ==> inj-event(ApplyRespSent(sid_3,act_1)) is true.
+-- Query event(ApplyReqSent(sid_3,tok,nsv_3)) ==> event(ReadyToApply(sid_3)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 169 rules (49 with conclusion selected). Queue: 13 rules.
+Starting query event(ApplyReqSent(sid_3,tok,nsv_3)) ==> event(ReadyToApply(sid_3))
+goal reachable: b-event(ReadyToApply(SESSID_1)) -> event(ApplyReqSent(SESSID_1,utok_2,NEW))
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+k_i2r_3 = k_i2r[!1 = @sid]
+ctr_i2r1_1 = ctr_i2r1[!1 = @sid]
+SRC_CTX_1 = SRC_CTX[!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid_1]
+utok_2 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+RESULT event(ApplyReqSent(sid_3,tok,nsv_3)) ==> event(ReadyToApply(sid_3)) is true.
+-- Query inj-event(ApplyRespRcv(sid_3,act_1)) ==> (inj-event(ApplyRespSent(sid_3,act_1)) ==> inj-event(ApplyReqRcv(sid_3,tok,nsv_3))) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 170 rules (49 with conclusion selected). Queue: 20 rules.
+Starting query inj-event(ApplyRespRcv(sid_3,act_1)) ==> (inj-event(ApplyRespSent(sid_3,act_1)) ==> inj-event(ApplyReqRcv(sid_3,tok,nsv_3)))
+goal reachable: b-inj-event(ApplyRespSent(SESSID_1,ACT_PROCEED[]),@occ174_2) && b-inj-event(ApplyReqRcv(SESSID_1,utok_2,NEW),@occ166_1) -> inj-event(ApplyRespRcv(SESSID_1,ACT_PROCEED[]),@occ69_2)
+The 1st, 2nd hypotheses occur strictly before the conclusion.
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+k_r2i_3 = k_r2i[!1 = @sid]
+k_i2r_3 = k_i2r[!1 = @sid]
+ctr_i2r1_1 = ctr_i2r1[!1 = @sid]
+SRC_CTX_1 = SRC_CTX[!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid_1]
+utok_2 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+fwimg_2 = fwimg[!1 = @sid_2]
+ctr_r2i2_1 = ctr_r2i2[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+dlyR_1 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+ctr_r2i1_1 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+ctr_i2r2_1 = ctr_i2r2[ctD = aead_enc(k_r2i_3,M_DL(fwimg_2,hash(fwimg_2),sign(hash(fwimg_2),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)),aadD = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),ctR = aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)),aadR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),!1 = @sid]
+fwimg_3 = fwimg[!1 = @sid_3]
+delay_1 = delay[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+ctr_r2i3_1 = ctr_r2i3[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+fwimg_4 = fwimg[!1 = @sid_4]
+ctr_r2i2_2 = ctr_r2i2[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_4),sk(KM_VENDOR)),fw_1 = fwimg_4,dig = hash(fwimg_4),u = URI,!1 = @sid]
+fwimg_5 = fwimg[!1 = @sid_5]
+utok_3 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+dlyR_2 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+ctr_r2i1_2 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+@occ69_2 = @occ69_1[ctAR = aead_enc(k_r2i_3,M_APPLY_RESP(ACT_PROCEED[],delay_1),nonce(SECFLAGS_UNICAST[],ctr_r2i3_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil)),aadAR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil),ctD = aead_enc(k_r2i_3,M_DL(fwimg_4,hash(fwimg_4),sign(hash(fwimg_4),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil)),aadD = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil),ctR = aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil)),aadR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil),!1 = @sid]
+@occ174_2 = @occ174_1[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+@occ166_1 = @occ166[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+goal reachable: b-inj-event(ApplyRespSent(SESSID_1,ACT_PROCEED[]),@occ174_2) && b-inj-event(ApplyReqRcv(SESSID_1,utok_2,NEW),@occ166_1) -> inj-event(ApplyRespRcv(SESSID_1,ACT_PROCEED[]),@occ69_2) && inj-event(ApplyRespSent(SESSID_1,ACT_PROCEED[]),@occ174_2)
+The 1st, 2nd hypotheses occur strictly before the 1st conclusion.
+The 2nd hypothesis occurs strictly before the 2nd conclusion.
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+k_r2i_3 = k_r2i[!1 = @sid]
+k_i2r_3 = k_i2r[!1 = @sid]
+ctr_i2r1_1 = ctr_i2r1[!1 = @sid]
+SRC_CTX_1 = SRC_CTX[!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid_1]
+utok_2 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+fwimg_2 = fwimg[!1 = @sid_2]
+ctr_r2i2_1 = ctr_r2i2[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+dlyR_1 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+ctr_r2i1_1 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+ctr_i2r2_1 = ctr_i2r2[ctD = aead_enc(k_r2i_3,M_DL(fwimg_2,hash(fwimg_2),sign(hash(fwimg_2),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)),aadD = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),ctR = aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)),aadR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),!1 = @sid]
+fwimg_3 = fwimg[!1 = @sid_3]
+delay_1 = delay[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+ctr_r2i3_1 = ctr_r2i3[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+fwimg_4 = fwimg[!1 = @sid_4]
+ctr_r2i2_2 = ctr_r2i2[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_4),sk(KM_VENDOR)),fw_1 = fwimg_4,dig = hash(fwimg_4),u = URI,!1 = @sid]
+fwimg_5 = fwimg[!1 = @sid_5]
+utok_3 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+dlyR_2 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+ctr_r2i1_2 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+@occ69_2 = @occ69_1[ctAR = aead_enc(k_r2i_3,M_APPLY_RESP(ACT_PROCEED[],delay_1),nonce(SECFLAGS_UNICAST[],ctr_r2i3_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil)),aadAR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil),ctD = aead_enc(k_r2i_3,M_DL(fwimg_4,hash(fwimg_4),sign(hash(fwimg_4),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil)),aadD = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil),ctR = aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil)),aadR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil),!1 = @sid]
+@occ174_2 = @occ174_1[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+@occ166_1 = @occ166[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+RESULT inj-event(ApplyRespRcv(sid_3,act_1)) ==> (inj-event(ApplyRespSent(sid_3,act_1)) ==> inj-event(ApplyReqRcv(sid_3,tok,nsv_3))) is true.
+-- Query event(ApplyReqSent(sid_3,tok,nsv_3)) ==> event(TokenIssuedSID(sid_3,tok)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 168 rules (49 with conclusion selected). Queue: 14 rules.
+Starting query event(ApplyReqSent(sid_3,tok,nsv_3)) ==> event(TokenIssuedSID(sid_3,tok))
+goal reachable: b-event(TokenIssuedSID(SESSID_1,utok_2)) -> event(ApplyReqSent(SESSID_1,utok_2,NEW))
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+k_i2r_3 = k_i2r[!1 = @sid]
+ctr_i2r1_1 = ctr_i2r1[!1 = @sid]
+SRC_CTX_1 = SRC_CTX[!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid_1]
+utok_2 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+RESULT event(ApplyReqSent(sid_3,tok,nsv_3)) ==> event(TokenIssuedSID(sid_3,tok)) is true.
+-- Query not event(endP) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 168 rules (49 with conclusion selected). Queue: 11 rules.
+Starting query not event(endP)
+goal reachable: event(endP)
+
+Derivation:
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+k_r2i_3 = k_r2i[!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid_1]
+k_i2r_3 = k_i2r[!1 = @sid]
+ctr_i2r1_1 = ctr_i2r1[!1 = @sid]
+SRC_CTX_1 = SRC_CTX[!1 = @sid]
+ctr_r2i2_1 = ctr_r2i2[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+fwimg_2 = fwimg[!1 = @sid_2]
+utok_2 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+dlyR_1 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+ctr_r2i1_1 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+ctr_i2r2_1 = ctr_i2r2[ctD = aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)),aadD = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),ctR = aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)),aadR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),!1 = @sid]
+fwimg_3 = fwimg[!1 = @sid_3]
+
+1. The message (URI,hash(fwimg_3),fwimg_3,sign(hash(fwimg_3),sk(KM_VENDOR)),NEW) may be sent on channel cv[] at output {14}.
+mess(cv[],(URI,hash(fwimg_3),fwimg_3,sign(hash(fwimg_3),sk(KM_VENDOR)),NEW)).
+
+2. The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))) may be sent to the attacker at output {28}.
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)))).
+
+3. By 2, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))).
+Using the function 2-proj-2-tuple the attacker may obtain aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)).
+attacker(aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))).
+
+4. Using the function nil the attacker may obtain nil.
+attacker(nil).
+
+5. By 2, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))).
+Using the function 1-proj-2-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)).
+
+6. By 5, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil).
+Using the function 4-proj-6-tuple the attacker may obtain ctr_i2r1_1.
+attacker(ctr_i2r1_1).
+
+7. The attacker initially knows SECFLAGS_UNICAST[].
+attacker(SECFLAGS_UNICAST[]).
+
+8. By 5, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil).
+Using the function 2-proj-6-tuple the attacker may obtain SESSID_1.
+attacker(SESSID_1).
+
+9. The attacker initially knows MSGFLAGS[].
+attacker(MSGFLAGS[]).
+
+10. By 9, the attacker may know MSGFLAGS[].
+By 8, the attacker may know SESSID_1.
+By 7, the attacker may know SECFLAGS_UNICAST[].
+By 6, the attacker may know ctr_i2r1_1.
+By 4, the attacker may know nil.
+By 4, the attacker may know nil.
+Using the function 6-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)).
+
+11. By 10, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil).
+By 3, the attacker may know aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)).
+Using the function 2-tuple the attacker may obtain ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))).
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)))).
+
+12. The message (URI,hash(fwimg_2),fwimg_2,sign(hash(fwimg_2),sk(KM_VENDOR)),NEW) may be sent on channel cv[] at output {14}.
+mess(cv[],(URI,hash(fwimg_2),fwimg_2,sign(hash(fwimg_2),sk(KM_VENDOR)),NEW)).
+
+13. The message (URI,hash(fwimg_2),fwimg_2,sign(hash(fwimg_2),sk(KM_VENDOR)),NEW) that may be sent on channel cv[] by 12 may be received at input {132}.
+The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))) that the attacker may have by 11 may be received at input {133}.
+So the message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil))) may be sent to the attacker at output {151}.
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)))).
+
+14. By 13, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil))).
+Using the function 2-proj-2-tuple the attacker may obtain aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)).
+attacker(aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil))).
+
+15. By 13, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil))).
+Using the function 1-proj-2-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)).
+
+16. By 15, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil).
+Using the function 4-proj-6-tuple the attacker may obtain ctr_r2i1_1.
+attacker(ctr_r2i1_1).
+
+17. By 9, the attacker may know MSGFLAGS[].
+By 8, the attacker may know SESSID_1.
+By 7, the attacker may know SECFLAGS_UNICAST[].
+By 16, the attacker may know ctr_r2i1_1.
+By 4, the attacker may know nil.
+By 4, the attacker may know nil.
+Using the function 6-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)).
+
+18. By 17, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil).
+By 14, the attacker may know aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)).
+Using the function 2-tuple the attacker may obtain ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil))).
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)))).
+
+19. The message (URI,hash(fwimg_1),fwimg_1,sign(hash(fwimg_1),sk(KM_VENDOR)),NEW) may be sent on channel cv[] at output {14}.
+mess(cv[],(URI,hash(fwimg_1),fwimg_1,sign(hash(fwimg_1),sk(KM_VENDOR)),NEW)).
+
+20. The message (URI,hash(fwimg_1),fwimg_1,sign(hash(fwimg_1),sk(KM_VENDOR)),NEW) that may be sent on channel cv[] by 19 may be received at input {132}.
+The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))) that the attacker may have by 11 may be received at input {133}.
+So the message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil))) may be sent to the attacker at output {158}.
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)))).
+
+21. By 20, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil))).
+Using the function 2-proj-2-tuple the attacker may obtain aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)).
+attacker(aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil))).
+
+22. By 20, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil))).
+Using the function 1-proj-2-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)).
+
+23. By 22, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil).
+Using the function 4-proj-6-tuple the attacker may obtain ctr_r2i2_1.
+attacker(ctr_r2i2_1).
+
+24. By 9, the attacker may know MSGFLAGS[].
+By 8, the attacker may know SESSID_1.
+By 7, the attacker may know SECFLAGS_UNICAST[].
+By 23, the attacker may know ctr_r2i2_1.
+By 4, the attacker may know nil.
+By 4, the attacker may know nil.
+Using the function 6-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)).
+
+25. By 24, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil).
+By 21, the attacker may know aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)).
+Using the function 2-tuple the attacker may obtain ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil))).
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)))).
+
+26. The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil))) that the attacker may have by 18 may be received at input {29}.
+The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil))) that the attacker may have by 25 may be received at input {40}.
+So the message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil))) may be sent to the attacker at output {61}.
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)))).
+
+27. By 26, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil))).
+Using the function 2-proj-2-tuple the attacker may obtain aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)).
+attacker(aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil))).
+
+28. By 26, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil))).
+Using the function 1-proj-2-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)).
+
+29. By 28, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil).
+Using the function 4-proj-6-tuple the attacker may obtain ctr_i2r2_1.
+attacker(ctr_i2r2_1).
+
+30. By 9, the attacker may know MSGFLAGS[].
+By 8, the attacker may know SESSID_1.
+By 7, the attacker may know SECFLAGS_UNICAST[].
+By 29, the attacker may know ctr_i2r2_1.
+By 4, the attacker may know nil.
+By 4, the attacker may know nil.
+Using the function 6-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)).
+
+31. By 30, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil).
+By 27, the attacker may know aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)).
+Using the function 2-tuple the attacker may obtain ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil))).
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)))).
+
+32. The message (URI,hash(fwimg_3),fwimg_3,sign(hash(fwimg_3),sk(KM_VENDOR)),NEW) that may be sent on channel cv[] by 1 may be received at input {132}.
+The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))) that the attacker may have by 11 may be received at input {133}.
+The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil))) that the attacker may have by 31 may be received at input {159}.
+So event endP may be executed at {176}.
+event(endP).
+
+33. By 32, event(endP).
+The goal is reached, represented in the following fact:
+event(endP).
+
+
+Unified @sid_2 with @sid_3
+Unified @sid_1 with @sid_3
+The clause after UnifyDerivationPrecise is
+event(endP)
+This clause still contradicts the query.
+A more detailed output of the traces is available with
+  set traceDisplay = long.
+
+new k_i2r: key creating k_i2r_4 at {2} in copy a
+
+new k_r2i: key creating k_r2i_4 at {3} in copy a
+
+new ReqId: bitstring creating ReqId_1 at {4} in copy a
+
+new ProvId: bitstring creating ProvId_1 at {5} in copy a
+
+new SESSID: bitstring creating SESSID_2 at {6} in copy a
+
+new SRC_CTX: bitstring creating SRC_CTX_2 at {7} in copy a
+
+event OTABegin(ReqId_1,ProvId_1,CUR) at {21} in copy a
+
+new ctr_i2r1: bitstring creating ctr_i2r1_2 at {23} in copy a
+
+event SendI2R(SESSID_2,ctr_i2r1_2,M_QI(VID,PID,CUR)) at {26} in copy a
+
+event QuerySent(ReqId_1,ProvId_1,VID,PID,CUR) at {27} in copy a
+
+out(net, ((~M,~M_1,~M_2,~M_3,~M_4,~M_5),~M_6)) with ~M = MSGFLAGS, ~M_1 = SESSID_2, ~M_2 = SECFLAGS_UNICAST, ~M_3 = ctr_i2r1_2, ~M_4 = nil, ~M_5 = nil, ~M_6 = aead_enc(k_i2r_4,M_QI(VID,PID,CUR),nonce(SECFLAGS_UNICAST,ctr_i2r1_2,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_i2r1_2,nil,nil)) at {28} in copy a
+
+new fwimg: image creating fwimg_4 at {8} in copy a
+
+event issued(fwimg_4,NEW) at {13} in copy a
+
+new k_i2r: key creating k_i2r_5 at {2} in copy a_1
+
+new k_r2i: key creating k_r2i_5 at {3} in copy a_1
+
+new ReqId: bitstring creating ReqId_2 at {4} in copy a_1
+
+new ProvId: bitstring creating ProvId_2 at {5} in copy a_1
+
+new SESSID: bitstring creating SESSID_3 at {6} in copy a_1
+
+new SRC_CTX: bitstring creating SRC_CTX_3 at {7} in copy a_1
+
+event OTABegin(ReqId_2,ProvId_2,CUR) at {21} in copy a_1
+
+new ctr_i2r1: bitstring creating ctr_i2r1_3 at {23} in copy a_1
+
+event SendI2R(SESSID_3,ctr_i2r1_3,M_QI(VID,PID,CUR)) at {26} in copy a_1
+
+event QuerySent(ReqId_2,ProvId_2,VID,PID,CUR) at {27} in copy a_1
+
+out(net, ((~M_7,~M_8,~M_9,~M_10,~M_11,~M_12),~M_13)) with ~M_7 = MSGFLAGS, ~M_8 = SESSID_3, ~M_9 = SECFLAGS_UNICAST, ~M_10 = ctr_i2r1_3, ~M_11 = nil, ~M_12 = nil, ~M_13 = aead_enc(k_i2r_5,M_QI(VID,PID,CUR),nonce(SECFLAGS_UNICAST,ctr_i2r1_3,SRC_CTX_3),(MSGFLAGS,SESSID_3,SECFLAGS_UNICAST,ctr_i2r1_3,nil,nil)) at {28} in copy a_1
+
+new fwimg: image creating fwimg_5 at {8} in copy a_1
+
+event issued(fwimg_5,NEW) at {13} in copy a_1
+
+out(cv, (URI,hash(fwimg_5),fwimg_5,sign(hash(fwimg_5),sk(KM_VENDOR)),NEW)) at {14} in copy a_1 received at {132} in copy a
+
+in(net, ((MSGFLAGS,~M_1,SECFLAGS_UNICAST,~M_3,nil,nil),~M_6)) with ~M_1 = SESSID_2, ~M_3 = ctr_i2r1_2, ~M_6 = aead_enc(k_i2r_4,M_QI(VID,PID,CUR),nonce(SECFLAGS_UNICAST,ctr_i2r1_2,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_i2r1_2,nil,nil)) at {133} in copy a
+
+event RecvI2R(SESSID_2,ctr_i2r1_2,M_QI(VID,PID,CUR)) at {139} in copy a
+
+new utok_1: bitstring creating utok_3 at {140} in copy a
+
+event TokenIssuedSID(SESSID_2,utok_3) at {141} in copy a
+
+new dlyR: bitstring creating dlyR_2 at {142} in copy a
+
+new ctr_r2i1: bitstring creating ctr_r2i1_2 at {146} in copy a
+
+event SendR2I(SESSID_2,ctr_r2i1_2,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW)) at {149} in copy a
+
+event QueryAnsweredP(SESSID_2,ProvId_1,VID,PID,NEW) at {150} in copy a
+
+out(net, ((~M_14,~M_15,~M_16,~M_17,~M_18,~M_19),~M_20)) with ~M_14 = MSGFLAGS, ~M_15 = SESSID_2, ~M_16 = SECFLAGS_UNICAST, ~M_17 = ctr_r2i1_2, ~M_18 = nil, ~M_19 = nil, ~M_20 = aead_enc(k_r2i_4,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST,ctr_r2i1_2,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_r2i1_2,nil,nil)) at {151} in copy a
+
+event DownloadStart(SESSID_2,ProvId_1,URI,fwimg_5) at {152} in copy a
+
+new ctr_r2i2: bitstring creating ctr_r2i2_2 at {154} in copy a
+
+event SendR2I(SESSID_2,ctr_r2i2_2,M_DL(fwimg_5,hash(fwimg_5),sign(hash(fwimg_5),sk(KM_VENDOR)))) at {157} in copy a
+
+out(net, ((~M_21,~M_22,~M_23,~M_24,~M_25,~M_26),~M_27)) with ~M_21 = MSGFLAGS, ~M_22 = SESSID_2, ~M_23 = SECFLAGS_UNICAST, ~M_24 = ctr_r2i2_2, ~M_25 = nil, ~M_26 = nil, ~M_27 = aead_enc(k_r2i_4,M_DL(fwimg_5,hash(fwimg_5),sign(hash(fwimg_5),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST,ctr_r2i2_2,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_r2i2_2,nil,nil)) at {158} in copy a
+
+in(net, ((MSGFLAGS,~M_1,SECFLAGS_UNICAST,~M_17,nil,nil),~M_20)) with ~M_1 = SESSID_2, ~M_17 = ctr_r2i1_2, ~M_20 = aead_enc(k_r2i_4,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST,ctr_r2i1_2,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_r2i1_2,nil,nil)) at {29} in copy a
+
+event RecvR2I(SESSID_2,ctr_r2i1_2,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW)) at {36} in copy a
+
+event VersionEligible(CUR,NEW) at {38} in copy a
+
+in(net, ((MSGFLAGS,~M_1,SECFLAGS_UNICAST,~M_24,nil,nil),~M_27)) with ~M_1 = SESSID_2, ~M_24 = ctr_r2i2_2, ~M_27 = aead_enc(k_r2i_4,M_DL(fwimg_5,hash(fwimg_5),sign(hash(fwimg_5),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST,ctr_r2i2_2,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_r2i2_2,nil,nil)) at {40} in copy a
+
+event RecvR2I(SESSID_2,ctr_r2i2_2,M_DL(fwimg_5,hash(fwimg_5),sign(hash(fwimg_5),sk(KM_VENDOR)))) at {46} in copy a
+
+event authenticated(fwimg_5,NEW) at {51} in copy a
+
+event VersionAcceptedStrong(CUR,NEW) at {52} in copy a
+
+event DownloadDone(SESSID_2,ReqId_1,ProvId_1,URI,fwimg_5) at {53} in copy a
+
+event ReadyToApply(SESSID_2) at {54} in copy a
+
+new ctr_i2r2: bitstring creating ctr_i2r2_2 at {56} in copy a
+
+event SendI2R(SESSID_2,ctr_i2r2_2,M_APPLY_REQ(utok_3,NEW)) at {59} in copy a
+
+event ApplyReqSent(SESSID_2,utok_3,NEW) at {60} in copy a
+
+out(net, ((~M_28,~M_29,~M_30,~M_31,~M_32,~M_33),~M_34)) with ~M_28 = MSGFLAGS, ~M_29 = SESSID_2, ~M_30 = SECFLAGS_UNICAST, ~M_31 = ctr_i2r2_2, ~M_32 = nil, ~M_33 = nil, ~M_34 = aead_enc(k_i2r_4,M_APPLY_REQ(utok_3,NEW),nonce(SECFLAGS_UNICAST,ctr_i2r2_2,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_i2r2_2,nil,nil)) at {61} in copy a
+
+in(net, ((MSGFLAGS,~M_1,SECFLAGS_UNICAST,~M_31,nil,nil),~M_34)) with ~M_1 = SESSID_2, ~M_31 = ctr_i2r2_2, ~M_34 = aead_enc(k_i2r_4,M_APPLY_REQ(utok_3,NEW),nonce(SECFLAGS_UNICAST,ctr_i2r2_2,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_i2r2_2,nil,nil)) at {159} in copy a
+
+event RecvI2R(SESSID_2,ctr_i2r2_2,M_APPLY_REQ(utok_3,NEW)) at {165} in copy a
+
+event ApplyReqRcv(SESSID_2,utok_3,NEW) at {166} in copy a
+
+new delay: bitstring creating delay_1 at {168} in copy a
+
+new ctr_r2i3: bitstring creating ctr_r2i3_1 at {170} in copy a
+
+event SendR2I(SESSID_2,ctr_r2i3_1,M_APPLY_RESP(ACT_PROCEED,delay_1)) at {173} in copy a
+
+event ApplyRespSent(SESSID_2,ACT_PROCEED) at {174} in copy a
+
+out(net, ((~M_35,~M_36,~M_37,~M_38,~M_39,~M_40),~M_41)) with ~M_35 = MSGFLAGS, ~M_36 = SESSID_2, ~M_37 = SECFLAGS_UNICAST, ~M_38 = ctr_r2i3_1, ~M_39 = nil, ~M_40 = nil, ~M_41 = aead_enc(k_r2i_4,M_APPLY_RESP(ACT_PROCEED,delay_1),nonce(SECFLAGS_UNICAST,ctr_r2i3_1,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_r2i3_1,nil,nil)) at {175} in copy a
+
+event endP at {176} in copy a (goal)
+
+The event endP is executed at {176} in copy a.
+A trace has been found.
+RESULT not event(endP) is false.
+-- Query not event(endR) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 169 rules (49 with conclusion selected). Queue: 14 rules.
+Starting query not event(endR)
+goal reachable: event(endR)
+
+Derivation:
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+k_i2r_3 = k_i2r[!1 = @sid]
+ctr_i2r1_1 = ctr_i2r1[!1 = @sid]
+SRC_CTX_1 = SRC_CTX[!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid_1]
+utok_2 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+k_r2i_3 = k_r2i[!1 = @sid]
+fwimg_2 = fwimg[!1 = @sid_2]
+ctr_r2i2_1 = ctr_r2i2[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_2),sk(KM_VENDOR)),fw_1 = fwimg_2,dig = hash(fwimg_2),u = URI,!1 = @sid]
+dlyR_1 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+ctr_r2i1_1 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_1),sk(KM_VENDOR)),fw_1 = fwimg_1,dig = hash(fwimg_1),u = URI,!1 = @sid]
+ctr_i2r2_1 = ctr_i2r2[ctD = aead_enc(k_r2i_3,M_DL(fwimg_2,hash(fwimg_2),sign(hash(fwimg_2),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)),aadD = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),ctR = aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)),aadR = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),!1 = @sid]
+fwimg_3 = fwimg[!1 = @sid_3]
+ctr_r2i3_1 = ctr_r2i3[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+delay_1 = delay[ctA = aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)),aadA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_3),sk(KM_VENDOR)),fw_1 = fwimg_3,dig = hash(fwimg_3),u = URI,!1 = @sid]
+fwimg_4 = fwimg[!1 = @sid_4]
+ctr_r2i2_2 = ctr_r2i2[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_4),sk(KM_VENDOR)),fw_1 = fwimg_4,dig = hash(fwimg_4),u = URI,!1 = @sid]
+fwimg_5 = fwimg[!1 = @sid_5]
+ctr_r2i1_2 = ctr_r2i1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+utok_3 = utok_1[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+dlyR_2 = dlyR[ctQ = aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)),aadQ_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),nsv_2 = NEW,sigf_2 = sign(hash(fwimg_5),sk(KM_VENDOR)),fw_1 = fwimg_5,dig = hash(fwimg_5),u = URI,!1 = @sid]
+
+1. The message (URI,hash(fwimg_5),fwimg_5,sign(hash(fwimg_5),sk(KM_VENDOR)),NEW) may be sent on channel cv[] at output {14}.
+mess(cv[],(URI,hash(fwimg_5),fwimg_5,sign(hash(fwimg_5),sk(KM_VENDOR)),NEW)).
+
+2. The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))) may be sent to the attacker at output {28}.
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)))).
+
+3. By 2, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))).
+Using the function 2-proj-2-tuple the attacker may obtain aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)).
+attacker(aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))).
+
+4. Using the function nil the attacker may obtain nil.
+attacker(nil).
+
+5. By 2, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))).
+Using the function 1-proj-2-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)).
+
+6. By 5, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil).
+Using the function 4-proj-6-tuple the attacker may obtain ctr_i2r1_1.
+attacker(ctr_i2r1_1).
+
+7. The attacker initially knows SECFLAGS_UNICAST[].
+attacker(SECFLAGS_UNICAST[]).
+
+8. By 5, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil).
+Using the function 2-proj-6-tuple the attacker may obtain SESSID_1.
+attacker(SESSID_1).
+
+9. The attacker initially knows MSGFLAGS[].
+attacker(MSGFLAGS[]).
+
+10. By 9, the attacker may know MSGFLAGS[].
+By 8, the attacker may know SESSID_1.
+By 7, the attacker may know SECFLAGS_UNICAST[].
+By 6, the attacker may know ctr_i2r1_1.
+By 4, the attacker may know nil.
+By 4, the attacker may know nil.
+Using the function 6-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)).
+
+11. By 10, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil).
+By 3, the attacker may know aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)).
+Using the function 2-tuple the attacker may obtain ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))).
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil)))).
+
+12. The message (URI,hash(fwimg_5),fwimg_5,sign(hash(fwimg_5),sk(KM_VENDOR)),NEW) that may be sent on channel cv[] by 1 may be received at input {132}.
+The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))) that the attacker may have by 11 may be received at input {133}.
+So the message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil))) may be sent to the attacker at output {151}.
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil)))).
+
+13. By 12, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil))).
+Using the function 2-proj-2-tuple the attacker may obtain aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil)).
+attacker(aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil))).
+
+14. By 12, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil))).
+Using the function 1-proj-2-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil)).
+
+15. By 14, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil).
+Using the function 4-proj-6-tuple the attacker may obtain ctr_r2i1_2.
+attacker(ctr_r2i1_2).
+
+16. By 9, the attacker may know MSGFLAGS[].
+By 8, the attacker may know SESSID_1.
+By 7, the attacker may know SECFLAGS_UNICAST[].
+By 15, the attacker may know ctr_r2i1_2.
+By 4, the attacker may know nil.
+By 4, the attacker may know nil.
+Using the function 6-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil)).
+
+17. By 16, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil).
+By 13, the attacker may know aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil)).
+Using the function 2-tuple the attacker may obtain ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil))).
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil)))).
+
+18. The message (URI,hash(fwimg_4),fwimg_4,sign(hash(fwimg_4),sk(KM_VENDOR)),NEW) may be sent on channel cv[] at output {14}.
+mess(cv[],(URI,hash(fwimg_4),fwimg_4,sign(hash(fwimg_4),sk(KM_VENDOR)),NEW)).
+
+19. The message (URI,hash(fwimg_4),fwimg_4,sign(hash(fwimg_4),sk(KM_VENDOR)),NEW) that may be sent on channel cv[] by 18 may be received at input {132}.
+The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))) that the attacker may have by 11 may be received at input {133}.
+So the message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_4,hash(fwimg_4),sign(hash(fwimg_4),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil))) may be sent to the attacker at output {158}.
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_4,hash(fwimg_4),sign(hash(fwimg_4),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil)))).
+
+20. By 19, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_4,hash(fwimg_4),sign(hash(fwimg_4),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil))).
+Using the function 2-proj-2-tuple the attacker may obtain aead_enc(k_r2i_3,M_DL(fwimg_4,hash(fwimg_4),sign(hash(fwimg_4),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil)).
+attacker(aead_enc(k_r2i_3,M_DL(fwimg_4,hash(fwimg_4),sign(hash(fwimg_4),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil))).
+
+21. By 19, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_4,hash(fwimg_4),sign(hash(fwimg_4),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil))).
+Using the function 1-proj-2-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil)).
+
+22. By 21, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil).
+Using the function 4-proj-6-tuple the attacker may obtain ctr_r2i2_2.
+attacker(ctr_r2i2_2).
+
+23. By 9, the attacker may know MSGFLAGS[].
+By 8, the attacker may know SESSID_1.
+By 7, the attacker may know SECFLAGS_UNICAST[].
+By 22, the attacker may know ctr_r2i2_2.
+By 4, the attacker may know nil.
+By 4, the attacker may know nil.
+Using the function 6-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil)).
+
+24. By 23, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil).
+By 20, the attacker may know aead_enc(k_r2i_3,M_DL(fwimg_4,hash(fwimg_4),sign(hash(fwimg_4),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil)).
+Using the function 2-tuple the attacker may obtain ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_4,hash(fwimg_4),sign(hash(fwimg_4),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil))).
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_4,hash(fwimg_4),sign(hash(fwimg_4),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil)))).
+
+25. The message (URI,hash(fwimg_3),fwimg_3,sign(hash(fwimg_3),sk(KM_VENDOR)),NEW) may be sent on channel cv[] at output {14}.
+mess(cv[],(URI,hash(fwimg_3),fwimg_3,sign(hash(fwimg_3),sk(KM_VENDOR)),NEW)).
+
+26. The message (URI,hash(fwimg_1),fwimg_1,sign(hash(fwimg_1),sk(KM_VENDOR)),NEW) may be sent on channel cv[] at output {14}.
+mess(cv[],(URI,hash(fwimg_1),fwimg_1,sign(hash(fwimg_1),sk(KM_VENDOR)),NEW)).
+
+27. The message (URI,hash(fwimg_1),fwimg_1,sign(hash(fwimg_1),sk(KM_VENDOR)),NEW) that may be sent on channel cv[] by 26 may be received at input {132}.
+The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))) that the attacker may have by 11 may be received at input {133}.
+So the message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil))) may be sent to the attacker at output {151}.
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)))).
+
+28. By 27, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil))).
+Using the function 2-proj-2-tuple the attacker may obtain aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)).
+attacker(aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil))).
+
+29. By 27, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil))).
+Using the function 1-proj-2-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)).
+
+30. By 29, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil).
+Using the function 4-proj-6-tuple the attacker may obtain ctr_r2i1_1.
+attacker(ctr_r2i1_1).
+
+31. By 9, the attacker may know MSGFLAGS[].
+By 8, the attacker may know SESSID_1.
+By 7, the attacker may know SECFLAGS_UNICAST[].
+By 30, the attacker may know ctr_r2i1_1.
+By 4, the attacker may know nil.
+By 4, the attacker may know nil.
+Using the function 6-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)).
+
+32. By 31, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil).
+By 28, the attacker may know aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)).
+Using the function 2-tuple the attacker may obtain ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil))).
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil)))).
+
+33. The message (URI,hash(fwimg_2),fwimg_2,sign(hash(fwimg_2),sk(KM_VENDOR)),NEW) may be sent on channel cv[] at output {14}.
+mess(cv[],(URI,hash(fwimg_2),fwimg_2,sign(hash(fwimg_2),sk(KM_VENDOR)),NEW)).
+
+34. The message (URI,hash(fwimg_2),fwimg_2,sign(hash(fwimg_2),sk(KM_VENDOR)),NEW) that may be sent on channel cv[] by 33 may be received at input {132}.
+The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))) that the attacker may have by 11 may be received at input {133}.
+So the message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_2,hash(fwimg_2),sign(hash(fwimg_2),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil))) may be sent to the attacker at output {158}.
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_2,hash(fwimg_2),sign(hash(fwimg_2),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)))).
+
+35. By 34, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_2,hash(fwimg_2),sign(hash(fwimg_2),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil))).
+Using the function 2-proj-2-tuple the attacker may obtain aead_enc(k_r2i_3,M_DL(fwimg_2,hash(fwimg_2),sign(hash(fwimg_2),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)).
+attacker(aead_enc(k_r2i_3,M_DL(fwimg_2,hash(fwimg_2),sign(hash(fwimg_2),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil))).
+
+36. By 34, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_2,hash(fwimg_2),sign(hash(fwimg_2),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil))).
+Using the function 1-proj-2-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)).
+
+37. By 36, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil).
+Using the function 4-proj-6-tuple the attacker may obtain ctr_r2i2_1.
+attacker(ctr_r2i2_1).
+
+38. By 9, the attacker may know MSGFLAGS[].
+By 8, the attacker may know SESSID_1.
+By 7, the attacker may know SECFLAGS_UNICAST[].
+By 37, the attacker may know ctr_r2i2_1.
+By 4, the attacker may know nil.
+By 4, the attacker may know nil.
+Using the function 6-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)).
+
+39. By 38, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil).
+By 35, the attacker may know aead_enc(k_r2i_3,M_DL(fwimg_2,hash(fwimg_2),sign(hash(fwimg_2),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)).
+Using the function 2-tuple the attacker may obtain ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_2,hash(fwimg_2),sign(hash(fwimg_2),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil))).
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_2,hash(fwimg_2),sign(hash(fwimg_2),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil)))).
+
+40. The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_2,dlyR_1,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_1,nil,nil))) that the attacker may have by 32 may be received at input {29}.
+The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_2,hash(fwimg_2),sign(hash(fwimg_2),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_1,nil,nil))) that the attacker may have by 39 may be received at input {40}.
+So the message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil))) may be sent to the attacker at output {61}.
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)))).
+
+41. By 40, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil))).
+Using the function 2-proj-2-tuple the attacker may obtain aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)).
+attacker(aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil))).
+
+42. By 40, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil))).
+Using the function 1-proj-2-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)).
+
+43. By 42, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil).
+Using the function 4-proj-6-tuple the attacker may obtain ctr_i2r2_1.
+attacker(ctr_i2r2_1).
+
+44. By 9, the attacker may know MSGFLAGS[].
+By 8, the attacker may know SESSID_1.
+By 7, the attacker may know SECFLAGS_UNICAST[].
+By 43, the attacker may know ctr_i2r2_1.
+By 4, the attacker may know nil.
+By 4, the attacker may know nil.
+Using the function 6-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)).
+
+45. By 44, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil).
+By 41, the attacker may know aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)).
+Using the function 2-tuple the attacker may obtain ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil))).
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil)))).
+
+46. The message (URI,hash(fwimg_3),fwimg_3,sign(hash(fwimg_3),sk(KM_VENDOR)),NEW) that may be sent on channel cv[] by 25 may be received at input {132}.
+The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil),aead_enc(k_i2r_3,M_QI(VID[],PID[],CUR),nonce(SECFLAGS_UNICAST[],ctr_i2r1_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r1_1,nil,nil))) that the attacker may have by 11 may be received at input {133}.
+The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil),aead_enc(k_i2r_3,M_APPLY_REQ(utok_2,NEW),nonce(SECFLAGS_UNICAST[],ctr_i2r2_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_i2r2_1,nil,nil))) that the attacker may have by 45 may be received at input {159}.
+So the message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil),aead_enc(k_r2i_3,M_APPLY_RESP(ACT_PROCEED[],delay_1),nonce(SECFLAGS_UNICAST[],ctr_r2i3_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil))) may be sent to the attacker at output {175}.
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil),aead_enc(k_r2i_3,M_APPLY_RESP(ACT_PROCEED[],delay_1),nonce(SECFLAGS_UNICAST[],ctr_r2i3_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil)))).
+
+47. By 46, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil),aead_enc(k_r2i_3,M_APPLY_RESP(ACT_PROCEED[],delay_1),nonce(SECFLAGS_UNICAST[],ctr_r2i3_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil))).
+Using the function 2-proj-2-tuple the attacker may obtain aead_enc(k_r2i_3,M_APPLY_RESP(ACT_PROCEED[],delay_1),nonce(SECFLAGS_UNICAST[],ctr_r2i3_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil)).
+attacker(aead_enc(k_r2i_3,M_APPLY_RESP(ACT_PROCEED[],delay_1),nonce(SECFLAGS_UNICAST[],ctr_r2i3_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil))).
+
+48. By 46, the attacker may know ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil),aead_enc(k_r2i_3,M_APPLY_RESP(ACT_PROCEED[],delay_1),nonce(SECFLAGS_UNICAST[],ctr_r2i3_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil))).
+Using the function 1-proj-2-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil)).
+
+49. By 48, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil).
+Using the function 4-proj-6-tuple the attacker may obtain ctr_r2i3_1.
+attacker(ctr_r2i3_1).
+
+50. By 9, the attacker may know MSGFLAGS[].
+By 8, the attacker may know SESSID_1.
+By 7, the attacker may know SECFLAGS_UNICAST[].
+By 49, the attacker may know ctr_r2i3_1.
+By 4, the attacker may know nil.
+By 4, the attacker may know nil.
+Using the function 6-tuple the attacker may obtain (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil).
+attacker((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil)).
+
+51. By 50, the attacker may know (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil).
+By 47, the attacker may know aead_enc(k_r2i_3,M_APPLY_RESP(ACT_PROCEED[],delay_1),nonce(SECFLAGS_UNICAST[],ctr_r2i3_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil)).
+Using the function 2-tuple the attacker may obtain ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil),aead_enc(k_r2i_3,M_APPLY_RESP(ACT_PROCEED[],delay_1),nonce(SECFLAGS_UNICAST[],ctr_r2i3_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil))).
+attacker(((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil),aead_enc(k_r2i_3,M_APPLY_RESP(ACT_PROCEED[],delay_1),nonce(SECFLAGS_UNICAST[],ctr_r2i3_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil)))).
+
+52. The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil),aead_enc(k_r2i_3,QI_AVAIL(NEW,utok_3,dlyR_2,URI,NEW),nonce(SECFLAGS_UNICAST[],ctr_r2i1_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i1_2,nil,nil))) that the attacker may have by 17 may be received at input {29}.
+The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil),aead_enc(k_r2i_3,M_DL(fwimg_4,hash(fwimg_4),sign(hash(fwimg_4),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST[],ctr_r2i2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i2_2,nil,nil))) that the attacker may have by 24 may be received at input {40}.
+The message ((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil),aead_enc(k_r2i_3,M_APPLY_RESP(ACT_PROCEED[],delay_1),nonce(SECFLAGS_UNICAST[],ctr_r2i3_1,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctr_r2i3_1,nil,nil))) that the attacker may have by 51 may be received at input {62}.
+So event endR may be executed at {72}.
+event(endR).
+
+53. By 52, event(endR).
+The goal is reached, represented in the following fact:
+event(endR).
+
+
+Unified @sid_4 with @sid_3
+Unified @sid_2 with @sid_3
+Unified @sid_5 with @sid_3
+Unified @sid_1 with @sid_3
+The clause after UnifyDerivationPrecise is
+event(endR)
+This clause still contradicts the query.
+A more detailed output of the traces is available with
+  set traceDisplay = long.
+
+new k_i2r: key creating k_i2r_4 at {2} in copy a
+
+new k_r2i: key creating k_r2i_4 at {3} in copy a
+
+new ReqId: bitstring creating ReqId_1 at {4} in copy a
+
+new ProvId: bitstring creating ProvId_1 at {5} in copy a
+
+new SESSID: bitstring creating SESSID_2 at {6} in copy a
+
+new SRC_CTX: bitstring creating SRC_CTX_2 at {7} in copy a
+
+event OTABegin(ReqId_1,ProvId_1,CUR) at {21} in copy a
+
+new ctr_i2r1: bitstring creating ctr_i2r1_2 at {23} in copy a
+
+event SendI2R(SESSID_2,ctr_i2r1_2,M_QI(VID,PID,CUR)) at {26} in copy a
+
+event QuerySent(ReqId_1,ProvId_1,VID,PID,CUR) at {27} in copy a
+
+out(net, ((~M,~M_1,~M_2,~M_3,~M_4,~M_5),~M_6)) with ~M = MSGFLAGS, ~M_1 = SESSID_2, ~M_2 = SECFLAGS_UNICAST, ~M_3 = ctr_i2r1_2, ~M_4 = nil, ~M_5 = nil, ~M_6 = aead_enc(k_i2r_4,M_QI(VID,PID,CUR),nonce(SECFLAGS_UNICAST,ctr_i2r1_2,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_i2r1_2,nil,nil)) at {28} in copy a
+
+new fwimg: image creating fwimg_6 at {8} in copy a
+
+event issued(fwimg_6,NEW) at {13} in copy a
+
+new k_i2r: key creating k_i2r_5 at {2} in copy a_1
+
+new k_r2i: key creating k_r2i_5 at {3} in copy a_1
+
+new ReqId: bitstring creating ReqId_2 at {4} in copy a_1
+
+new ProvId: bitstring creating ProvId_2 at {5} in copy a_1
+
+new SESSID: bitstring creating SESSID_3 at {6} in copy a_1
+
+new SRC_CTX: bitstring creating SRC_CTX_3 at {7} in copy a_1
+
+event OTABegin(ReqId_2,ProvId_2,CUR) at {21} in copy a_1
+
+new ctr_i2r1: bitstring creating ctr_i2r1_3 at {23} in copy a_1
+
+event SendI2R(SESSID_3,ctr_i2r1_3,M_QI(VID,PID,CUR)) at {26} in copy a_1
+
+event QuerySent(ReqId_2,ProvId_2,VID,PID,CUR) at {27} in copy a_1
+
+out(net, ((~M_7,~M_8,~M_9,~M_10,~M_11,~M_12),~M_13)) with ~M_7 = MSGFLAGS, ~M_8 = SESSID_3, ~M_9 = SECFLAGS_UNICAST, ~M_10 = ctr_i2r1_3, ~M_11 = nil, ~M_12 = nil, ~M_13 = aead_enc(k_i2r_5,M_QI(VID,PID,CUR),nonce(SECFLAGS_UNICAST,ctr_i2r1_3,SRC_CTX_3),(MSGFLAGS,SESSID_3,SECFLAGS_UNICAST,ctr_i2r1_3,nil,nil)) at {28} in copy a_1
+
+new fwimg: image creating fwimg_7 at {8} in copy a_1
+
+event issued(fwimg_7,NEW) at {13} in copy a_1
+
+out(cv, (URI,hash(fwimg_7),fwimg_7,sign(hash(fwimg_7),sk(KM_VENDOR)),NEW)) at {14} in copy a_1 received at {132} in copy a
+
+in(net, ((MSGFLAGS,~M_1,SECFLAGS_UNICAST,~M_3,nil,nil),~M_6)) with ~M_1 = SESSID_2, ~M_3 = ctr_i2r1_2, ~M_6 = aead_enc(k_i2r_4,M_QI(VID,PID,CUR),nonce(SECFLAGS_UNICAST,ctr_i2r1_2,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_i2r1_2,nil,nil)) at {133} in copy a
+
+event RecvI2R(SESSID_2,ctr_i2r1_2,M_QI(VID,PID,CUR)) at {139} in copy a
+
+new utok_1: bitstring creating utok_4 at {140} in copy a
+
+event TokenIssuedSID(SESSID_2,utok_4) at {141} in copy a
+
+new dlyR: bitstring creating dlyR_3 at {142} in copy a
+
+new ctr_r2i1: bitstring creating ctr_r2i1_3 at {146} in copy a
+
+event SendR2I(SESSID_2,ctr_r2i1_3,QI_AVAIL(NEW,utok_4,dlyR_3,URI,NEW)) at {149} in copy a
+
+event QueryAnsweredP(SESSID_2,ProvId_1,VID,PID,NEW) at {150} in copy a
+
+out(net, ((~M_14,~M_15,~M_16,~M_17,~M_18,~M_19),~M_20)) with ~M_14 = MSGFLAGS, ~M_15 = SESSID_2, ~M_16 = SECFLAGS_UNICAST, ~M_17 = ctr_r2i1_3, ~M_18 = nil, ~M_19 = nil, ~M_20 = aead_enc(k_r2i_4,QI_AVAIL(NEW,utok_4,dlyR_3,URI,NEW),nonce(SECFLAGS_UNICAST,ctr_r2i1_3,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_r2i1_3,nil,nil)) at {151} in copy a
+
+event DownloadStart(SESSID_2,ProvId_1,URI,fwimg_7) at {152} in copy a
+
+new ctr_r2i2: bitstring creating ctr_r2i2_3 at {154} in copy a
+
+event SendR2I(SESSID_2,ctr_r2i2_3,M_DL(fwimg_7,hash(fwimg_7),sign(hash(fwimg_7),sk(KM_VENDOR)))) at {157} in copy a
+
+out(net, ((~M_21,~M_22,~M_23,~M_24,~M_25,~M_26),~M_27)) with ~M_21 = MSGFLAGS, ~M_22 = SESSID_2, ~M_23 = SECFLAGS_UNICAST, ~M_24 = ctr_r2i2_3, ~M_25 = nil, ~M_26 = nil, ~M_27 = aead_enc(k_r2i_4,M_DL(fwimg_7,hash(fwimg_7),sign(hash(fwimg_7),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST,ctr_r2i2_3,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_r2i2_3,nil,nil)) at {158} in copy a
+
+in(net, ((MSGFLAGS,~M_1,SECFLAGS_UNICAST,~M_17,nil,nil),~M_20)) with ~M_1 = SESSID_2, ~M_17 = ctr_r2i1_3, ~M_20 = aead_enc(k_r2i_4,QI_AVAIL(NEW,utok_4,dlyR_3,URI,NEW),nonce(SECFLAGS_UNICAST,ctr_r2i1_3,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_r2i1_3,nil,nil)) at {29} in copy a
+
+event RecvR2I(SESSID_2,ctr_r2i1_3,QI_AVAIL(NEW,utok_4,dlyR_3,URI,NEW)) at {36} in copy a
+
+event VersionEligible(CUR,NEW) at {38} in copy a
+
+in(net, ((MSGFLAGS,~M_1,SECFLAGS_UNICAST,~M_24,nil,nil),~M_27)) with ~M_1 = SESSID_2, ~M_24 = ctr_r2i2_3, ~M_27 = aead_enc(k_r2i_4,M_DL(fwimg_7,hash(fwimg_7),sign(hash(fwimg_7),sk(KM_VENDOR))),nonce(SECFLAGS_UNICAST,ctr_r2i2_3,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_r2i2_3,nil,nil)) at {40} in copy a
+
+event RecvR2I(SESSID_2,ctr_r2i2_3,M_DL(fwimg_7,hash(fwimg_7),sign(hash(fwimg_7),sk(KM_VENDOR)))) at {46} in copy a
+
+event authenticated(fwimg_7,NEW) at {51} in copy a
+
+event VersionAcceptedStrong(CUR,NEW) at {52} in copy a
+
+event DownloadDone(SESSID_2,ReqId_1,ProvId_1,URI,fwimg_7) at {53} in copy a
+
+event ReadyToApply(SESSID_2) at {54} in copy a
+
+new ctr_i2r2: bitstring creating ctr_i2r2_2 at {56} in copy a
+
+event SendI2R(SESSID_2,ctr_i2r2_2,M_APPLY_REQ(utok_4,NEW)) at {59} in copy a
+
+event ApplyReqSent(SESSID_2,utok_4,NEW) at {60} in copy a
+
+out(net, ((~M_28,~M_29,~M_30,~M_31,~M_32,~M_33),~M_34)) with ~M_28 = MSGFLAGS, ~M_29 = SESSID_2, ~M_30 = SECFLAGS_UNICAST, ~M_31 = ctr_i2r2_2, ~M_32 = nil, ~M_33 = nil, ~M_34 = aead_enc(k_i2r_4,M_APPLY_REQ(utok_4,NEW),nonce(SECFLAGS_UNICAST,ctr_i2r2_2,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_i2r2_2,nil,nil)) at {61} in copy a
+
+in(net, ((MSGFLAGS,~M_1,SECFLAGS_UNICAST,~M_31,nil,nil),~M_34)) with ~M_1 = SESSID_2, ~M_31 = ctr_i2r2_2, ~M_34 = aead_enc(k_i2r_4,M_APPLY_REQ(utok_4,NEW),nonce(SECFLAGS_UNICAST,ctr_i2r2_2,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_i2r2_2,nil,nil)) at {159} in copy a
+
+event RecvI2R(SESSID_2,ctr_i2r2_2,M_APPLY_REQ(utok_4,NEW)) at {165} in copy a
+
+event ApplyReqRcv(SESSID_2,utok_4,NEW) at {166} in copy a
+
+new delay: bitstring creating delay_2 at {168} in copy a
+
+new ctr_r2i3: bitstring creating ctr_r2i3_2 at {170} in copy a
+
+event SendR2I(SESSID_2,ctr_r2i3_2,M_APPLY_RESP(ACT_PROCEED,delay_2)) at {173} in copy a
+
+event ApplyRespSent(SESSID_2,ACT_PROCEED) at {174} in copy a
+
+out(net, ((~M_35,~M_36,~M_37,~M_38,~M_39,~M_40),~M_41)) with ~M_35 = MSGFLAGS, ~M_36 = SESSID_2, ~M_37 = SECFLAGS_UNICAST, ~M_38 = ctr_r2i3_2, ~M_39 = nil, ~M_40 = nil, ~M_41 = aead_enc(k_r2i_4,M_APPLY_RESP(ACT_PROCEED,delay_2),nonce(SECFLAGS_UNICAST,ctr_r2i3_2,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_r2i3_2,nil,nil)) at {175} in copy a
+
+event endP at {176} in copy a
+
+in(net, ((MSGFLAGS,~M_1,SECFLAGS_UNICAST,~M_38,nil,nil),~M_41)) with ~M_1 = SESSID_2, ~M_38 = ctr_r2i3_2, ~M_41 = aead_enc(k_r2i_4,M_APPLY_RESP(ACT_PROCEED,delay_2),nonce(SECFLAGS_UNICAST,ctr_r2i3_2,SRC_CTX_2),(MSGFLAGS,SESSID_2,SECFLAGS_UNICAST,ctr_r2i3_2,nil,nil)) at {62} in copy a
+
+event RecvR2I(SESSID_2,ctr_r2i3_2,M_APPLY_RESP(ACT_PROCEED,delay_2)) at {68} in copy a
+
+event ApplyRespRcv(SESSID_2,ACT_PROCEED) at {69} in copy a
+
+event OTAEnd(ReqId_1,ProvId_1,NEW) at {71} in copy a
+
+event endR at {72} in copy a (goal)
+
+The event endR is executed at {72} in copy a.
+A trace has been found.
+RESULT not event(endR) is false.
+
+--------------------------------------------------------------
+Verification summary:
+
+Query not attacker(sk(KM_VENDOR)) is true.
+
+Query event(DownloadDone(sid_3,r_1,p,u_1,f)) ==> event(DownloadStart(sid_3,p,u_1,f)) is true.
+
+Query event(authenticated(fw_2,nv_1)) ==> event(issued(fw_2,nv_1)) is true.
+
+Query event(DownloadStart(sid_3,p,u_1,f)) ==> event(QueryAnsweredP(sid_3,p,vid_1,pid_1,nsv_3)) is true.
+
+Query inj-event(RecvI2R(sid2,ctr2,m_1)) ==> inj-event(SendI2R(sid2,ctr2,m_1)) is true.
+
+Query inj-event(RecvR2I(sid3,ctr3,n)) ==> inj-event(SendR2I(sid3,ctr3,n)) is true.
+
+Query inj-event(ApplyRespRcv(sid_3,act_1)) ==> inj-event(ApplyRespSent(sid_3,act_1)) is true.
+
+Query event(ApplyReqSent(sid_3,tok,nsv_3)) ==> event(ReadyToApply(sid_3)) is true.
+
+Query inj-event(ApplyRespRcv(sid_3,act_1)) ==> (inj-event(ApplyRespSent(sid_3,act_1)) ==> inj-event(ApplyReqRcv(sid_3,tok,nsv_3))) is true.
+
+Query event(ApplyReqSent(sid_3,tok,nsv_3)) ==> event(TokenIssuedSID(sid_3,tok)) is true.
+
+Query not event(endP) is false.
+
+Query not event(endR) is false.
+
+--------------------------------------------------------------
+

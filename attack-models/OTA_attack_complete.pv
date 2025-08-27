@@ -1,0 +1,556 @@
+(* =============================================================
+   Matter OTA ProVerif Model
+  -------------------------------------------------------------
+   High-level mapping to Matter 1.4 OTA (§ OTA Software Updates):
+   - Vendor: origin of signed firmware image and version (NSV)
+   - OTA Provider: answers QueryImage, serves the image, authorizes Apply
+   - OTA Requestor: queries, verifies, applies
+  - Best-case scenario: no Busy loops beyond single retry, no token fallback
+
+   Crypto/transport abstraction:
+   - AEAD channels (i2r and r2i [directional keys]) with nonces built from flags||ctr||nodeID
+   - Signature over firmware hash by Vendor; Requestor verifies it
+
+   Monotonicity & anti-rollback:
+   - ver_gt models “newer-than” (axiomatized: NEW() > CUR())
+   - Guards placed before download/apply on both sides
+
+   This version ENFORCES session-binding on receive:
+   after parsing each AAD tuple, we check parsed sidX == local sid; else abort.
+   ============================================================= *)
+
+free net : channel.
+const nil: bitstring.
+
+(* === Base types and results === *)
+type key.
+type keymat.
+type pkey.
+type skey.
+type result.
+type string.
+
+(* Firmware payload abstract type *)
+type image.
+
+(* Success result constructor *)
+fun ok(): result.
+
+(* Bitstring serialization of firmware images (used for hashing/signature) *)
+fun image_to_bitstring(image): bitstring [data, typeConverter].
+fun bs2str(bitstring): string [data, typeConverter].
+
+(* === AEAD channel (abstract secure transport) === *)
+(* AEAD message construction (Matter, secure unicast)
+   A = Message Header (AAD); C = ciphertext || tag. A equals on-wire header fields:
+   MessageFlags || SessionID || SecurityFlags || MessageCounter || [SourceNodeID] || [DestinationNodeID] || [Extensions].
+
+   Secure Unicast header privacy: S=0 and DSIZ=0 ⇒ Node IDs omitted in the header.
+   In CASE, SourceNodeID for the nonce is obtained from the secure session context (not from the header).
+
+   Model mapping :
+     AAD = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctr, nil, nil)  // IDs omitted as per unicast
+     Nonce = nonce(SECFLAGS_UNICAST, ctr, src_ctx)           // src_ctx = SourceNodeID from session context
+*)
+fun aead_enc(key, bitstring, bitstring, bitstring): bitstring.
+reduc forall k: key, m: bitstring, n: bitstring, ad: bitstring;
+  aead_dec(k, aead_enc(k, m, n, ad), n, ad) = m.
+reduc forall k: key, m: bitstring, n: bitstring, ad: bitstring;
+  aead_dec_validate(k, aead_enc(k, m, n, ad), n, ad) = ok().
+
+(* === Hash === *)
+fun hash(bitstring) : bitstring.
+
+(* === Nonce derivation === *)
+fun nonce(bitstring, bitstring, bitstring): bitstring.
+
+(* === Vendor signature interface === *)
+fun pk(keymat): pkey.
+fun sk(keymat): skey.
+fun sign(bitstring, skey): bitstring.
+
+(* Perfect signature theory *)
+reduc forall m:bitstring, y:keymat; getmess(sign(m, sk(y))) = m.
+reduc forall m:bitstring, y:keymat; checksign(sign(m, sk(y)), pk(y)) = ok().
+
+(* Vendor’s key material *)
+const KM_VENDOR : keymat [private].
+
+(* Private Vendor -> Provider provisioning channel *)
+free cv : channel [private].
+
+(* === Message layer constants (abstract) === *)
+free MSGFLAGS         : bitstring.
+free SECFLAGS_UNICAST : bitstring.
+
+(* === Application messages with strong tags === *)
+(* Requestor -> Provider *)
+fun M_QI(bitstring, bitstring, bitstring): bitstring [data].  (* (VID, PID, CUR()) *)
+
+(* Provider -> Requestor: QueryImageResponse(UpdateAvailable) *)
+fun QI_AVAIL(bitstring, bitstring, bitstring, bitstring, string): bitstring [data].
+(* Provider stubs for other statuses *)
+fun QI_BUSY(bitstring): bitstring [data].
+fun QI_NOTAVAIL(): bitstring [data].
+
+(* Safe recognizers *)
+reduc forall a:bitstring,b:bitstring,c:bitstring,u:bitstring,vs:string;
+  is_QI_AVAIL(QI_AVAIL(a,b,c,u,vs)) = ok().
+reduc forall d:bitstring; is_QI_BUSY(QI_BUSY(d)) = ok().
+reduc is_QI_NOTAVAIL(QI_NOTAVAIL()) = ok().
+
+(* === Download message === *)
+fun M_DL(image, bitstring, bitstring): bitstring [data].  (* (FWIMG, digest, sig) *)
+
+(* === Apply phase === *)
+fun M_APPLY_REQ(bitstring, bitstring): bitstring [data].
+fun M_APPLY_RESP(bitstring, bitstring): bitstring [data].  (* (Action, Delay) *)
+free ACT_PROCEED : bitstring.
+free ACT_AWAIT   : bitstring.
+free ACT_DISCONTINUE : bitstring.
+
+(* === Demo identifiers & constructors === *)
+free VID   : bitstring.
+free PID   : bitstring.
+fun CUR(): bitstring [data].
+fun NEW(): bitstring [data].
+fun URI(): bitstring.
+
+(* === Version order === *)
+fun ver_gt(bitstring, bitstring): result.
+equation ver_gt(NEW(), CUR()) = ok().
+
+(* === URI usability predicate (abstract) === *)
+fun uri_ok(bitstring): result.
+equation uri_ok(URI()) = ok().
+
+(* === Events (for correspondence proofs) === *)
+(* Lifecycle *)
+event OTABegin(bitstring, bitstring, bitstring).
+event OTAEnd(bitstring, bitstring, bitstring).
+
+(* Query/answer & download milestones (with sid) *)
+event QuerySent(bitstring, bitstring, bitstring, bitstring, bitstring).
+event QueryAnsweredP(bitstring, bitstring, bitstring, bitstring, bitstring).   (* (sid, provId, VID, PID, nsv) *)
+event DownloadStart(bitstring, bitstring, bitstring, image).                   (* (sid, provId, uri, img) *)
+event DownloadDone(bitstring, bitstring, bitstring, bitstring, image).         (* (sid, reqId, provId, uri, img) *)
+
+(* Transport sent/received (for anti-replay per (sid,ctr)) *)
+event SendI2R(bitstring, bitstring, bitstring).
+event SendR2I(bitstring, bitstring, bitstring).
+event RecvI2R(bitstring, bitstring, bitstring).
+event RecvR2I(bitstring, bitstring, bitstring).
+
+(* Busy/retry bookkeeping *)
+event BusyRcv(bitstring).
+event RequerySameProv(bitstring).
+
+(* Authenticity-on-image semantics *)
+event issued(image, bitstring).
+event authenticated(image, bitstring).
+
+(* Apply / token tracking *)
+event TokenIssuedSID(bitstring, bitstring).
+event ReadyToApply(bitstring).
+event ApplyReqSent(bitstring, bitstring, bitstring).
+event ApplyReqRcv (bitstring, bitstring, bitstring).
+event ApplyRespSent(bitstring, bitstring).
+event ApplyRespRcv (bitstring, bitstring).
+
+(* Version gating witness *)
+event VersionAccepted(bitstring, bitstring).
+event VersionEligible(bitstring, bitstring).
+event VersionAcceptedStrong(bitstring, bitstring).
+
+(* Role termination (reachability) *)
+event endP().
+event endR().
+
+(* === Vendor role === *)
+let Vendor() =
+  new fwimg : image;
+  let fwbs = image_to_bitstring(fwimg) in
+  let dg   = hash(fwbs) in
+  let sigf = sign(dg, sk(KM_VENDOR)) in
+  let nsv  = NEW() in
+  event issued(fwimg, nsv);
+  out(cv, (URI(), dg, fwimg, sigf, nsv)).
+
+(* === Provider role (parametric in keys/session) === *)
+let Provider(provId: bitstring, k_i2r: key, k_r2i: key, sid: bitstring, src_ctx: bitstring) =
+
+  (* Pull Vendor provisioning tuple *)
+  in(cv, (u:bitstring, dig:bitstring, fw:image, sigf:bitstring, nsv:bitstring));
+
+  (* --- Receive QueryImage --- *)
+  in(net, (aadQ:bitstring, ctQ:bitstring));
+  let (mfQ:bitstring, sidQ:bitstring, sfQ:bitstring, ctrQ:bitstring, srcQ:bitstring, dstQ:bitstring) = aadQ in
+  if sidQ = sid then
+    let nQ = nonce(sfQ, ctrQ, src_ctx) in
+    if aead_dec_validate(k_i2r, ctQ, nQ, aadQ) = ok() then
+      let msg = aead_dec(k_i2r, ctQ, nQ, aadQ) in
+      let M_QI(vid:bitstring, pid:bitstring, csv:bitstring) = msg in
+      event RecvI2R(sid, ctrQ, msg);
+
+      new utok: bitstring;
+      event TokenIssuedSID(sid, utok);
+      new dlyR: bitstring;
+      let vstr = bs2str(nsv) in
+
+      (* Provider-side monotonicity guard *)
+      if ver_gt(nsv, csv) = ok() then
+        let resp = QI_AVAIL(nsv, utok, dlyR, u, vstr) in
+
+        (* Send UpdateAvailable *)
+        new ctr_r2i1: bitstring;
+        let aadR = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctr_r2i1, nil, nil) in
+        let nR   = nonce(SECFLAGS_UNICAST, ctr_r2i1, src_ctx) in
+        event SendR2I(sid, ctr_r2i1, resp);
+        event QueryAnsweredP(sid, provId, VID, PID, nsv);
+        out(net, (aadR, aead_enc(k_r2i, resp, nR, aadR)));
+
+        (* Send Download *)
+        event DownloadStart(sid, provId, u, fw);
+        let dl = M_DL(fw, dig, sigf) in
+        new ctr_r2i2: bitstring;
+        let aadD = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctr_r2i2, nil, nil) in
+        let nD   = nonce(SECFLAGS_UNICAST, ctr_r2i2, src_ctx) in
+        event SendR2I(sid, ctr_r2i2, dl);
+        out(net, (aadD, aead_enc(k_r2i, dl, nD, aadD)));
+
+        (* --- Receive ApplyUpdateRequest --- *)
+        in(net, (aadA:bitstring, ctA:bitstring));
+        let (mfA:bitstring, sidA:bitstring, sfA:bitstring, ctrA:bitstring, srcA:bitstring, dstA:bitstring) = aadA in
+        if sidA = sid then
+          let nA = nonce(sfA, ctrA, src_ctx) in
+          if aead_dec_validate(k_i2r, ctA, nA, aadA) = ok() then
+            let areq = aead_dec(k_i2r, ctA, nA, aadA) in
+            let M_APPLY_REQ(tk:bitstring, nv:bitstring) = areq in
+            event RecvI2R(sid, ctrA, areq);
+            event ApplyReqRcv(sid, tk, nv);
+
+            if nv = nsv then
+              new delay: bitstring;
+              let aresp = M_APPLY_RESP(ACT_PROCEED, delay) in
+              new ctr_r2i3: bitstring;
+              let aadAR = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctr_r2i3, nil, nil) in
+              let nAR   = nonce(SECFLAGS_UNICAST, ctr_r2i3, src_ctx) in
+              event SendR2I(sid, ctr_r2i3, aresp);
+              event ApplyRespSent(sid, ACT_PROCEED);
+              out(net, (aadAR, aead_enc(k_r2i, aresp, nAR, aadAR)));
+              event endP(); 0
+            else 0
+          else 0
+        else 0
+      else 0
+    else 0
+  else 0.
+
+(* === Requestor role (with Busy -> single requery) === *)
+let Requestor(reqId: bitstring, provId: bitstring, k_i2r: key, k_r2i: key, sid: bitstring, src_ctx: bitstring) =
+
+  event OTABegin(reqId, provId, CUR());
+
+  (* Send QueryImage *)
+  let q = M_QI(VID, PID, CUR()) in
+  new ctr_i2r1: bitstring;
+  let aadQ = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctr_i2r1, nil, nil) in
+  let nQ   = nonce(SECFLAGS_UNICAST, ctr_i2r1, src_ctx) in
+  event SendI2R(sid, ctr_i2r1, q);
+  event QuerySent(reqId, provId, VID, PID, CUR());
+  out(net, (aadQ, aead_enc(k_i2r, q, nQ, aadQ)));
+
+  (* --- Receive Provider response --- *)
+  in(net, (aadR:bitstring, ctR:bitstring));
+  let (mfR:bitstring, sidR:bitstring, sfR:bitstring, ctrR:bitstring, srcR:bitstring, dstR:bitstring) = aadR in
+  if sidR = sid then
+    let nR = nonce(sfR, ctrR, src_ctx) in
+    if aead_dec_validate(k_r2i, ctR, nR, aadR) = ok() then
+      let r = aead_dec(k_r2i, ctR, nR, aadR) in
+
+      if is_QI_AVAIL(r) = ok() then
+        let QI_AVAIL(nsv:bitstring, utok:bitstring, dly:bitstring, uri_hint:bitstring, vstr:string) = r in
+        event RecvR2I(sid, ctrR, r);
+
+        if ver_gt(nsv, CUR()) = ok() then
+          event VersionEligible(CUR(), nsv);
+        if uri_ok(uri_hint) = ok() then
+
+          (* --- Receive Download --- *)
+          in(net, (aadD:bitstring, ctD:bitstring));
+          let (mfD:bitstring, sidD:bitstring, sfD:bitstring, ctrD:bitstring, srcD:bitstring, dstD:bitstring) = aadD in
+          if sidD = sid then
+            let nD = nonce(sfD, ctrD, src_ctx) in
+            if aead_dec_validate(k_r2i, ctD, nD, aadD) = ok() then
+              let dl = aead_dec(k_r2i, ctD, nD, aadD) in
+              let M_DL(fw:image, digest:bitstring, sigf:bitstring) = dl in
+              event RecvR2I(sid, ctrD, dl);
+
+              if checksign(sigf, pk(KM_VENDOR)) = ok() then
+                let m = getmess(sigf) in
+                if m = hash(image_to_bitstring(fw)) then
+                  if digest = hash(image_to_bitstring(fw)) then
+                    event authenticated(fw, nsv);
+                    event VersionAcceptedStrong(CUR(), nsv);
+                    event DownloadDone(sid, reqId, provId, uri_hint, fw);
+                    event ReadyToApply(sid);
+
+                    (* Send ApplyUpdateRequest *)
+                    let areq = M_APPLY_REQ(utok, nsv) in
+                    new ctr_i2r2: bitstring;
+                    let aadA = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctr_i2r2, nil, nil) in
+                    let nA   = nonce(SECFLAGS_UNICAST, ctr_i2r2, src_ctx) in
+                    event SendI2R(sid, ctr_i2r2, areq);
+                    event ApplyReqSent(sid, utok, nsv);
+                    out(net, (aadA, aead_enc(k_i2r, areq, nA, aadA)));
+
+                    (* --- Receive Apply response --- *)
+                    in(net, (aadAR:bitstring, ctAR:bitstring));
+                    let (mfAR:bitstring, sidAR:bitstring, sfAR:bitstring, ctrAR:bitstring, srcAR:bitstring, dstAR:bitstring) = aadAR in
+                    if sidAR = sid then
+                      let nAR = nonce(sfAR, ctrAR, src_ctx) in
+                      if aead_dec_validate(k_r2i, ctAR, nAR, aadAR) = ok() then
+                        let rAR = aead_dec(k_r2i, ctAR, nAR, aadAR) in
+                        let M_APPLY_RESP(act:bitstring, dlyA:bitstring) = rAR in
+                        event RecvR2I(sid, ctrAR, rAR);
+                        event ApplyRespRcv(sid, act);
+                        if act = ACT_PROCEED then
+                          event OTAEnd(reqId, provId, nsv);
+                          event endR(); 0
+                        else 0
+                      else 0
+                    else 0
+                  else 0
+                else 0
+              else 0
+            else 0
+          else 0
+        else 0
+
+      (* === CASE 2: Provider says Busy -> Requestor retries once === *)
+      else if is_QI_BUSY(r) = ok() then
+        let QI_BUSY(dly2:bitstring) = r in
+        event RecvR2I(sid, ctrR, r);
+        event BusyRcv(provId);
+
+        (* Re-issue QueryImage with the same (VID, PID, CUR()) *)
+        let q2 = M_QI(VID, PID, CUR()) in
+        new ctr_i2r1b: bitstring;
+        let aadQb = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctr_i2r1b, nil, nil) in
+        let nQb   = nonce(SECFLAGS_UNICAST, ctr_i2r1b, src_ctx) in
+        event RequerySameProv(provId);
+        event SendI2R(sid, ctr_i2r1b, q2);
+        out(net, (aadQb, aead_enc(k_i2r, q2, nQb, aadQb)));
+
+        (* Receive the second response, ideally QI_AVAIL *)
+        in(net, (aadRb:bitstring, ctRb:bitstring));
+        let (mfRb:bitstring, sidRb:bitstring, sfRb:bitstring, ctrRb:bitstring, srcRb:bitstring, dstRb:bitstring) = aadRb in
+        if sidRb = sid then
+          let nRb = nonce(sfRb, ctrRb, src_ctx) in
+          if aead_dec_validate(k_r2i, ctRb, nRb, aadRb) = ok() then
+            let rb = aead_dec(k_r2i, ctRb, nRb, aadRb) in
+            if is_QI_AVAIL(rb) = ok() then
+              let QI_AVAIL(nsvb:bitstring, utokb:bitstring, dlyb:bitstring, uri_hintb:bitstring, vstrb:string) = rb in
+              event RecvR2I(sid, ctrRb, rb);
+
+              if ver_gt(nsvb, CUR()) = ok() then
+                event VersionAccepted(CUR(), nsvb);
+              if uri_ok(uri_hintb) = ok() then
+
+                (* Receive image transfer for the retried flow *)
+                in(net, (aadDb:bitstring, ctDb:bitstring));
+                let (mfDb:bitstring, sidDb:bitstring, sfDb:bitstring, ctrDb:bitstring, srcDb:bitstring, dstDb:bitstring) = aadDb in
+                if sidDb = sid then
+                  let nDb = nonce(sfDb, ctrDb, src_ctx) in
+                  if aead_dec_validate(k_r2i, ctDb, nDb, aadDb) = ok() then
+                    let dlb = aead_dec(k_r2i, ctDb, nDb, aadDb) in
+                    let M_DL(fwb:image, digestb:bitstring, sigfb:bitstring) = dlb in
+                    event RecvR2I(sid, ctrDb, dlb);
+
+                    if checksign(sigfb, pk(KM_VENDOR)) = ok() then
+                      let mb = getmess(sigfb) in
+                      if mb = hash(image_to_bitstring(fwb)) then
+                        if digestb = hash(image_to_bitstring(fwb)) then
+                          event authenticated(fwb, nsvb);
+                          event DownloadDone(sid, reqId, provId, uri_hintb, fwb);
+                          event ReadyToApply(sid);
+
+                          (* Apply immediately using utokb, nsvb on retry *)
+                          let areqb = M_APPLY_REQ(utokb, nsvb) in
+                          new ctr_i2r2b: bitstring;
+                          let aadAb = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctr_i2r2b, nil, nil) in
+                          let nAb   = nonce(SECFLAGS_UNICAST, ctr_i2r2b, src_ctx) in
+                          event SendI2R(sid, ctr_i2r2b, areqb);
+                          event ApplyReqSent(sid, utokb , nsvb);
+                          out(net, (aadAb, aead_enc(k_i2r, areqb, nAb, aadAb)));
+
+                          (* Receive Apply response for retry case *)
+                          in(net, (aadARb:bitstring, ctARb:bitstring));
+                          let (mfARb:bitstring, sidARb:bitstring, sfARb:bitstring, ctrARb:bitstring, srcARb:bitstring, dstARb:bitstring) = aadARb in
+                          if sidARb = sid then
+                            let nARb = nonce(sfARb, ctrARb, src_ctx) in
+                            if aead_dec_validate(k_r2i, ctARb, nARb, aadARb) = ok() then
+                              let rARb = aead_dec(k_r2i, ctARb, nARb, aadARb) in
+                              let M_APPLY_RESP(actb:bitstring, dlyAb:bitstring) = rARb in
+                              event RecvR2I(sid, ctrARb, rARb);
+                              event ApplyRespRcv(sid, actb);
+                              if actb = ACT_PROCEED then
+                                event OTAEnd(reqId, provId, nsvb);
+                                event endR(); 0
+                              else 0
+                            else 0
+                          else 0
+                        else 0
+                      else 0
+                    else 0
+                  else 0
+                else 0
+              else 0
+            else 0
+          else 0
+        else 0
+      else 0
+    else 0
+  else 0.
+
+(* === Security properties (queries) === *)
+
+(* Key secrecy *)
+query attacker(sk(KM_VENDOR)).
+
+(* DownloadDone ⇒ prior DownloadStart (same sid/provider/uri/image) *)
+query sid:bitstring,r:bitstring, p:bitstring, u:bitstring, f:image;
+  event(DownloadDone(sid, r, p, u, f)) ==> event(DownloadStart(sid, p, u, f)).
+
+(* Authenticity of installed image *)
+query fw: image, nv: bitstring;
+  event(authenticated(fw, nv)) ==> event(issued(fw, nv)).
+
+(* Ordering: Provider answered before download starts *)
+query sid:bitstring, p:bitstring, vid:bitstring, pid:bitstring, nsv:bitstring, u:bitstring, f:image;
+  event(DownloadStart(sid, p, u, f)) ==> event(QueryAnsweredP(sid, p, vid, pid, nsv)).
+
+(* Anti-replay (injective) per direction, keyed by (sid, ctr) *)
+query sid2:bitstring, ctr2:bitstring, m:bitstring;
+  event(RecvI2R(sid2, ctr2, m)) ==> inj-event(SendI2R(sid2, ctr2, m)).
+query sid3:bitstring, ctr3:bitstring, n:bitstring;
+  event(RecvR2I(sid3, ctr3, n)) ==> inj-event(SendR2I(sid3, ctr3, n)).
+
+(* Apply-phase authentication *)
+query sid:bitstring, act:bitstring;
+  event(ApplyRespRcv(sid,  act)) ==> inj-event(ApplyRespSent(sid,  act)).
+
+(* Readiness discipline *)
+query sid:bitstring, tok:bitstring, nsv:bitstring;
+  event(ApplyReqSent(sid, tok, nsv)) ==> event(ReadyToApply(sid)).
+
+(* Full apply handshake *)
+query sid:bitstring, act:bitstring, tok:bitstring, nsv:bitstring;
+  event(ApplyRespRcv(sid, act))
+   ==> ( inj-event(ApplyRespSent(sid, act))
+        ==> inj-event(ApplyReqRcv(sid, tok, nsv)) ).
+
+(* Token freshness *)
+query sid:bitstring, tok:bitstring, nsv:bitstring;
+  event(ApplyReqSent(sid, tok, nsv)) ==> event(TokenIssuedSID(sid, tok)).
+
+(* Client-side monotonicity witness (strong) *)
+query cur:bitstring, nv:bitstring, fw: image;
+  event(VersionAcceptedStrong(cur,nv)) ==> event(issued(fw, nv)).
+
+(* Reachability beacons *)
+query event(endP()).
+query event(endR()).
+
+(* === Process: concurrently spawn multiple independent sessions === *)
+process
+  !(
+     new k_i2r : key;            (* AEAD key for I->R direction *)
+     new k_r2i : key;            (* AEAD key for R->I direction *)
+     new ReqId : bitstring;      (* Requestor identity / correlation id *)
+     new ProvId: bitstring;      (* Provider identity / correlation id *)
+     new SESSID: bitstring;      (* Session identifier used in AAD/events *)
+     new SRC_CTX: bitstring;     (* Represents the NodeIDs from the session context *)
+     ( Vendor()
+     | Requestor(ReqId, ProvId, k_i2r, k_r2i, SESSID, SRC_CTX)
+     | Provider(ProvId, k_i2r, k_r2i, SESSID, SRC_CTX)
+     | (  (* === SCENARIO B: leak operational keys + source context (NodeID) === *)
+         out(net, k_i2r);
+         out(net, k_r2i);
+         out(net, SRC_CTX)
+       )
+     )
+   )
+
+(*This file analyzes a critical security breach where an attacker possesses both an ephemeral key and the IPK. 
+  This dual compromise, potentially occurring when the attacker is a malicious member of the same 
+  Matter Fabric, results in multiple security property failures. Unlike the previous scenario where 
+  operational key compromise alone was insufficient, this combination enables significant protocol 
+  violations.*) 
+
+(*ref. of derivation: 
+    TranscriptHash = Crypto_Hash(Msg1 || Msg2 || Msg3) 
+    I2RKey || R2IKey || AttestationChallenge = 
+        Crypto_KDF( inputKey = SharedSecret, 
+                    salt = IPK || TranscriptHash,
+                    info = "SessionKeys", len = 3 * keylen ) 
+*)
+
+(* Attacker can forge AEAD frames for the
+   correct session by (i) reading sid from AAD, and (ii) computing valid nonces
+   via nonce(sf,ctr,SRC_CTX), since both keys and SRC_CTX are leaked.
+
+Summary per query:
+
+1. not attacker(sk(KM_VENDOR))  — TRUE
+   Vendor signing key never leaves the model; no rule leaks it.
+
+2. DownloadDone(sid,⋯) ==> DownloadStart(sid,⋯) — FALSE
+   Requestor can be driven to “DownloadDone” by attacker-crafted R2I frames
+   (valid AEAD, correct sid/nonce) without any Provider “DownloadStart” event.
+
+3. authenticated(fw,nv) ==> issued(fw,nv) — TRUE
+   End-to-end authenticity holds: we only set ‘authenticated’ after verifying
+   the Vendor signature over hash(image). Attacker can replay, but not forge.
+
+4. DownloadStart(sid,⋯) ==> QueryAnsweredP(sid,⋯) — TRUE
+   Provider emits QueryAnsweredP before sending the download; purely local order.
+
+5. RecvI2R ==> inj SendI2R  — FALSE
+
+6. RecvR2I ==> inj SendR2I  — FALSE
+   Injectivity on the secure channels fails: with keys+SRC_CTX the attacker
+   forges fresh I2R/R2I messages that were never sent by the peer.
+
+7. ApplyRespRcv ==> inj ApplyRespSent — FALSE
+   Same reason: forged Apply responses (R2I) pass AEAD checks and sid binding.
+   This could be really dangerous, since the attacker con change e.g ACT_APPLY, with DISMISE leading
+   to no new firmware updates even if avaible.
+
+8. ApplyReqSent ==> ReadyToApply — TRUE
+   Local discipline on the Requestor: we emit ApplyReq only after ReadyToApply.
+
+9. ApplyRespRcv ==> (inj ApplyRespSent ⇒ inj ApplyReqRcv) — FALSE
+   There exist traces where the received Apply response is attacker-forged, so
+   there is no matching ApplyReqRcv at the Provider.
+
+10. ApplyReqSent(sid,tok,⋯) ==> TokenIssuedSID(sid,tok) — FALSE
+    The attacker can inject a fake QI_AVAIL with an arbitrary ‘tok’; Requestor
+    will later send ApplyReq with a token never issued by the Provider.
+
+11. VersionAcceptedStrong(cur,nv) ==> issued(fw,nv) — TRUE
+    ‘VersionAcceptedStrong’ is raised only after successful Vendor signature
+    check on the image bound to ‘nv’; thus it implies Vendor issuance.
+
+12. not event(endP) — FALSE
+    Provider termination is reachable in at least one honest trace.
+
+13. not event(endR) — CANNOT BE PROVED
+    ProVerif cannot show that Requestor never terminates; under active attacks
+    (e.g., forged responses/withholding ACT_PROCEED) some traces may block,
+    while honest traces still allow termination.
+
+This matches the intended threat model: once transport keys and nonce context
+are compromised, channel-level guarantees collapse, but signature-based
+provenance of the firmware still protects against content forgery.
+*)

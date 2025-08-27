@@ -1,9 +1,0 @@
-type key.
-type ssk.
-type spk.
-
-free c : channel.
-
-fun spk_of(ssk) : spk.
-
-process 0

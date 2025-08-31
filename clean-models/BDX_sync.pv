@@ -1,0 +1,251 @@
+(*
+    BDX sync (Receiver-driven) – minimal, spec-faithful:
+    - Handshake: ReceiveInit -> ReceiveAccept
+    - Flow: BlockQuery (implicit ack) -> Block ... -> BlockEOF -> BlockAckEOF
+    - Delivery: a single Block encapsulates the payload (fw, dg, sigf) abstractly
+*)
+
+free net : channel.
+type key.
+type image.
+type result.
+type keymat.
+type skey.
+
+const KM_VENDOR : keymat [private].
+fun sk(keymat): skey.
+fun sign(bitstring, skey): bitstring.
+
+(* === Hash === *)
+fun hash(bitstring) : bitstring.
+
+(* === Nonce derivation === *)
+fun nonce(bitstring, bitstring, bitstring): bitstring.
+
+fun image_to_bitstring(image): bitstring [data, typeConverter].
+
+fun ok(): result.
+const nil: bitstring.
+(* === AEAD channel (abstract secure transport) ===
+   AAD = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctr, nil, nil)
+   Nonce = nonce(SECFLAGS_UNICAST, ctr, src_ctx)
+*)
+fun aead_enc(key, bitstring, bitstring, bitstring): bitstring.
+
+
+reduc forall k: key, m: bitstring, n: bitstring, ad: bitstring;
+    aead_dec(k, aead_enc(k, m, n, ad), n, ad) = m.
+reduc forall k: key, m: bitstring, n: bitstring, ad: bitstring;
+    aead_dec_validate(k, aead_enc(k, m, n, ad), n, ad) = ok().
+
+free MSGFLAGS         : bitstring.
+free SECFLAGS_UNICAST : bitstring.
+
+(* === BDX Messages === *)
+fun BDX_ReceiveInit(bitstring, bitstring, bitstring, bitstring, bitstring): bitstring [data].
+fun BDX_ReceiveAccept(bitstring, bitstring, bitstring, bitstring): bitstring [data].
+fun BDX_BlockQuery(bitstring): bitstring [data].
+fun BDX_BlockQueryWithSkip(bitstring, bitstring): bitstring [data].
+fun BDX_Block(bitstring, bitstring): bitstring [data].
+fun BDX_BlockEOF(): bitstring [data].
+fun BDX_BlockAckEOF(): bitstring [data].
+
+(* Chunk that carries (abstractly) all necessary payload: fw, digest, sig *)
+fun bdx_payload(image, bitstring, bitstring): bitstring [data].
+
+
+(* === Events for properties === *)
+event bdx_started(bitstring, bitstring).                (* sid, fileId/URI *)
+event bdx_params_agreed(bitstring, bitstring, bitstring, bitstring).  (* sid, blkSz, deflen, startofs *)
+event bdx_query_sent(bitstring, bitstring).             (* sid, seq *)
+event bdx_block_sent(bitstring, bitstring).             (* sid, seq *)
+event bdx_block_rcv (bitstring, bitstring).             (* sid, seq *)
+event bdx_eof_sent(bitstring, bitstring).               (* sid, seq *)
+event bdx_complete(bitstring, bitstring).        (* sid, digest, fw *)
+event bdx_aborted(bitstring, bitstring).                (* sid, statusCode *)
+event bdx_query_sent_eof(bitstring, bitstring).        (* sid, seq *)
+event bdx_query_rcv_eof(bitstring, bitstring).     (* sid, seq *)
+
+(* === BDX Sender: Provider (Follower) === *)
+let BDX_Sender(k_r2i: key, k_i2r: key, sid: bitstring, src_ctx: bitstring,
+               fw: image, dg: bitstring, sigf: bitstring, fileId: bitstring) =
+
+(* ReceiveInit (from Receiver) *)
+in(net, (aadRI:bitstring, ctRI:bitstring));
+let (mfRI:bitstring, sidRI:bitstring, sfRI:bitstring, ctrRI:bitstring, srcRI:bitstring, dstRI:bitstring) = aadRI in
+if sidRI = sid then
+let nRI = nonce(sfRI, ctrRI, src_ctx) in
+if aead_dec_validate(k_i2r, ctRI, nRI, aadRI) = ok() then
+let ri = aead_dec(k_i2r, ctRI, nRI, aadRI) in
+let BDX_ReceiveInit(ptc:bitstring, blkSzReq:bitstring, startOfs:bitstring, deflen:bitstring, lenVal:bitstring) = ri in
+event bdx_started(sid, fileId);
+
+(* ReceiveAccept *)
+let ra = BDX_ReceiveAccept(blkSzReq, startOfs, deflen, lenVal) in
+new ctrRA: bitstring;
+let aadRA = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctrRA, nil, nil) in
+let nRA   = nonce(SECFLAGS_UNICAST, ctrRA, src_ctx) in
+out(net, (aadRA, aead_enc(k_r2i, ra, nRA, aadRA)));
+event bdx_params_agreed(sid, blkSzReq, deflen, startOfs);
+
+(* BlockQuery -> Block *)
+in(net, (aadBQ:bitstring, ctBQ:bitstring));
+let (mfBQ:bitstring, sidBQ:bitstring, sfBQ:bitstring, ctrBQ:bitstring, srcBQ:bitstring, dstBQ:bitstring) = aadBQ in
+if sidBQ = sid then
+let nBQ = nonce(sfBQ, ctrBQ, src_ctx) in
+if aead_dec_validate(k_i2r, ctBQ, nBQ, aadBQ) = ok() then
+let q = aead_dec(k_i2r, ctBQ, nBQ, aadBQ) in
+let BDX_BlockQuery(seq:bitstring) = q in
+
+let chunk = bdx_payload(fw, dg, sigf) in
+let blk   = BDX_Block(seq, chunk) in
+new ctrBL: bitstring;
+let aadBL = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctrBL, nil, nil) in
+let nBL   = nonce(SECFLAGS_UNICAST, ctrBL, src_ctx) in
+event bdx_block_sent(sid, seq);
+out(net, (aadBL, aead_enc(k_r2i, blk, nBL, aadBL)));
+
+(* BlockQuery -> Block_EOF *)
+in(net, (aadBQ2:bitstring, ctBQ2:bitstring));
+let (mfBQ2:bitstring, sidBQ2:bitstring, sfBQ2:bitstring, ctrBQ2:bitstring, srcBQ2:bitstring, dstBQ2:bitstring) = aadBQ2 in
+if sidBQ2 = sid then
+let nBQ2 = nonce(sfBQ2, ctrBQ2, src_ctx) in
+if aead_dec_validate(k_i2r, ctBQ2, nBQ2, aadBQ2) = ok() then
+let q2 = aead_dec(k_i2r, ctBQ2, nBQ2, aadBQ2) in
+let BDX_BlockQuery(seq_eof:bitstring) = q2 in
+if seq_eof = hash((sid, seq)) then
+event bdx_query_rcv_eof(sid, seq_eof);
+
+(* EOF *)
+let eof_msg = BDX_BlockEOF() in
+new ctrEOF: bitstring;
+let aadEOF = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctrEOF, nil, nil) in
+let nEOF   = nonce(SECFLAGS_UNICAST, ctrEOF, src_ctx) in
+event bdx_eof_sent(sid, seq_eof);     (* <-- usa la seq della seconda BQ *)
+out(net, (aadEOF, aead_enc(k_r2i, eof_msg, nEOF, aadEOF)));
+
+
+(* Waiting for AckEOF *)
+in(net, (aadAE:bitstring, ctAE:bitstring));
+let (mfAE:bitstring, sidAE:bitstring, sfAE:bitstring, ctrAE:bitstring, srcAE:bitstring, dstAE:bitstring) = aadAE in
+let nAE = nonce(sfAE, ctrAE, src_ctx) in
+if aead_dec_validate(k_i2r, ctAE, nAE, aadAE) = ok() then
+let ae = aead_dec(k_i2r, ctAE, nAE, aadAE) in
+if sidAE = sid then
+let BDX_BlockAckEOF() = ae in
+event bdx_complete(sid, dg); 0.
+(* Lemma used by the baseline OTA: bdx_complete ≡ bdx_semantics_complete *)
+
+
+(* === BDX Receiver: Requestor (Driver)  === *)
+let BDX_Receiver(k_i2r: key, k_r2i: key, sid: bitstring, src_ctx: bitstring, fileId: bitstring) =
+
+(* ReceiveInit *)
+new ptc:bitstring; new blkSz:bitstring; new startOfs:bitstring; new deflen:bitstring; new lenVal:bitstring;
+let ri = BDX_ReceiveInit(ptc, blkSz, startOfs, deflen, lenVal) in
+new ctrRI: bitstring;
+let aadRI = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctrRI, nil, nil) in
+let nRI   = nonce(SECFLAGS_UNICAST, ctrRI, src_ctx) in
+out(net, (aadRI, aead_enc(k_i2r, ri, nRI, aadRI)));
+
+(* ReceiveAccept *)
+in(net, (aadRA:bitstring, ctRA:bitstring));
+let (mfRA:bitstring, sidRA:bitstring, sfRA:bitstring, ctrRA:bitstring, srcRA:bitstring, dstRA:bitstring) = aadRA in
+if sidRA = sid then
+let nRA = nonce(sfRA, ctrRA, src_ctx) in
+if aead_dec_validate(k_r2i, ctRA, nRA, aadRA) = ok() then
+let ra = aead_dec(k_r2i, ctRA, nRA, aadRA) in
+let BDX_ReceiveAccept(blkSzAcc:bitstring, startAcc:bitstring, defAcc:bitstring, lenAcc:bitstring) = ra in
+event bdx_params_agreed(sid, blkSzAcc, defAcc, startAcc);
+
+(* BlockQuery *)
+new seq:bitstring;
+let q  = BDX_BlockQuery(seq) in
+new ctrBQ: bitstring;
+let aadBQ = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctrBQ, nil, nil) in
+let nBQ   = nonce(SECFLAGS_UNICAST, ctrBQ, src_ctx) in
+event bdx_query_sent(sid, seq);
+out(net, (aadBQ, aead_enc(k_i2r, q, nBQ, aadBQ)));
+
+(* Block *)
+in(net, (aadBL:bitstring, ctBL:bitstring));
+let (mfBL:bitstring, sidBL:bitstring, sfBL:bitstring, ctrBL:bitstring, srcBL:bitstring, dstBL:bitstring) = aadBL in
+if sidBL = sid then
+let nBL = nonce(sfBL, ctrBL, src_ctx) in
+if aead_dec_validate(k_r2i, ctBL, nBL, aadBL) = ok() then
+let blk = aead_dec(k_r2i, ctBL, nBL, aadBL) in
+let BDX_Block(seq2:bitstring, chunk:bitstring) = blk in
+if seq2 = seq then
+event bdx_block_rcv(sid, seq2);
+let bdx_payload(fw:image, dg:bitstring, sigf:bitstring) = chunk in
+
+let seq_eof = hash((sid, seq)) in
+let q2  = BDX_BlockQuery(seq_eof) in
+new ctrBQ2: bitstring;
+let aadBQ2 = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctrBQ2, nil, nil) in
+let nBQ2   = nonce(SECFLAGS_UNICAST, ctrBQ2, src_ctx) in
+event bdx_query_sent_eof(sid, seq_eof);
+out(net, (aadBQ2, aead_enc(k_i2r, q2, nBQ2, aadBQ2)));
+
+(* EOF form Sender, then -> AckEOF *)
+in(net, (aadEOF:bitstring, ctEOF:bitstring));
+let (mfEOF:bitstring, sidEOF:bitstring, sfEOF:bitstring, ctrEOF:bitstring, srcEOF:bitstring, dstEOF:bitstring) = aadEOF in
+if sidEOF = sid then
+let nEOF = nonce(sfEOF, ctrEOF, src_ctx) in
+if aead_dec_validate(k_r2i, ctEOF, nEOF, aadEOF) = ok() then
+let eof = aead_dec(k_r2i, ctEOF, nEOF, aadEOF) in
+let BDX_BlockEOF() = eof in
+let ae = BDX_BlockAckEOF() in
+new ctrAE: bitstring;
+let aadAE = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctrAE, nil, nil) in
+let nAE   = nonce(SECFLAGS_UNICAST, ctrAE, src_ctx) in
+out(net, (aadAE, aead_enc(k_i2r, ae, nAE, aadAE))); 0.
+
+
+(* === BDX property  === *)
+
+(* 1)(anti-replay) *)
+query sid:bitstring,seq:bitstring,m:bitstring;
+  event(bdx_block_rcv(sid,seq)) ==> inj-event(bdx_block_sent(sid,seq)).
+
+
+(* 2) (Ordering) Every received block must have a corresponding BlockQuery (injective) *)
+query sid:bitstring, seq:bitstring;
+    event(bdx_block_rcv(sid, seq)) ==> inj-event(bdx_query_sent(sid, seq)).
+
+(* 3) Completion implies EOF sent (injective) *)
+query sid:bitstring, dg:bitstring, seq:bitstring;
+    event(bdx_complete(sid, dg)) ==> inj-event(bdx_eof_sent(sid, seq)).
+
+query sid:bitstring, seq:bitstring;
+  event(bdx_eof_sent(sid, seq)) ==> inj-event(bdx_query_rcv_eof(sid, seq)).
+
+(* Query 2: Query ricevuta implica query inviata *)
+query sid:bitstring, seq:bitstring;
+  event(bdx_query_rcv_eof(sid, seq)) ==> inj-event(bdx_query_sent_eof(sid, seq)).
+ 
+
+(* === Process: concurrently spawn multiple independent sessions === *)
+process
+     new fwimg : image;
+     new fileId: bitstring;
+     let fwbs = image_to_bitstring(fwimg) in
+     let dg   = hash(fwbs) in
+     let sigf = sign(dg, sk(KM_VENDOR)) in
+     
+  !(
+     new k_i2r : key;            (* AEAD key for I→R direction *)
+     new k_r2i : key;            (* AEAD key for R→I direction *)
+     new SESSID: bitstring;      (* Session identifier used in AAD/events *)
+     new SRC_CTX: bitstring;     (* Represents the NodeIDs from the session context *)
+     
+     (
+        BDX_Sender(k_r2i, k_i2r, SESSID, SRC_CTX, fwimg, dg, sigf, fileId)
+       | BDX_Receiver(k_i2r, k_r2i, SESSID, SRC_CTX, fileId)
+       (*| (  
+            out(net, k_i2r);
+            out(net, k_r2i);
+            out(net, SRC_CTX)
+         )*)
+     )
+  )

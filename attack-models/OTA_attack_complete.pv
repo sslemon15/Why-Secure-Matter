@@ -199,13 +199,13 @@ let Vendor() =
   let sigf = sign(dg, sk(KM_VENDOR)) in
   let nsv  = NEW() in
   event issued(fwimg, nsv);
-  out(cv, (URI(), dg, fwimg, sigf, nsv)).
+  out(cv, (dg, fwimg, sigf, nsv)).
 
 (* === Provider role (parametric in keys/session) === *)
 let Provider(provId: bitstring, k_i2r: key, k_r2i: key, sid: bitstring, src_ctx: bitstring) =
 
   (* Pull Vendor provisioning tuple *)
-  in(cv, (u:bitstring, dig:bitstring, fw:image, sigf:bitstring, nsv:bitstring));
+  in(cv, (dig:bitstring, fw:image, sigf:bitstring, nsv:bitstring));
 
   (* --- Receive QueryImage --- *)
   in(net, (aadQ:bitstring, ctQ:bitstring));
@@ -224,7 +224,7 @@ let Provider(provId: bitstring, k_i2r: key, k_r2i: key, sid: bitstring, src_ctx:
 
   (* Provider-side monotonicity guard *)
   if ver_gt(nsv, csv) = ok() then
-  let resp = QI_AVAIL(nsv, utok, dlyR, u, vstr) in
+  let resp = QI_AVAIL(nsv, utok, dlyR, URI(), vstr) in
 
   (* Send UpdateAvailable *)
   new ctr_r2i1: bitstring;
@@ -235,7 +235,7 @@ let Provider(provId: bitstring, k_i2r: key, k_r2i: key, sid: bitstring, src_ctx:
   out(net, (aadR, aead_enc(k_r2i, resp, nR, aadR)));
 
   (* Send Download *)
-  event DownloadStart(sid, provId, u, fw);
+  event DownloadStart(sid, provId, URI(), fw);
   let dl = M_DL(fw, dig, sigf) in
   new ctr_r2i2: bitstring;
   let aadD = (MSGFLAGS, sid, SECFLAGS_UNICAST, ctr_r2i2, nil, nil) in

@@ -16,8 +16,8 @@ The repository is organized into four main areas: `clean-models`, `attack-models
 * **attack-models/** — Variants under adversarial conditions to expose goal breakdowns or critical assumptions.
   *-:* `OTA_attack_complete.pv`, `OTA_attack_session_keys.pv`.
 
-* **sessions-proofs/** — Proofs and models for session phases (CASE/resumption) with dedicated events and queries (from [https://eprint.iacr.org/2025/1268](https://eprint.iacr.org/2025/1268)).
-  *-:* `case.pv`, `case_resumption.pv`.
+* **sessions-proofs/** — Proofs and models for session phases (CASE/resumption, PASE) with dedicated events and queries (from [https://eprint.iacr.org/2025/1268](https://eprint.iacr.org/2025/1268)).
+  *-:* `case.pv`, `case_resumption.pv`, `pase.pv` .
 
 * **outputs/** — ProVerif traces and results for reproducibility (execution logs and key events).
   *-:* `OTA_Baseline.txt`, `BDX_sync.txt`, `OTA_attack_session.txt`, `OTA_attack_complete.txt`.
@@ -33,7 +33,8 @@ The repository is organized into four main areas: `clean-models`, `attack-models
 │   └── BDX_sync.pv
 ├── sessions-proofs
 │   ├── case.pv
-│   └── case_resumption.pv
+|   ├── case_resumption.pv
+│   └── pase.pv
 └── outputs
     ├── OTA_Baseline.txt
     ├── BDX_sync.txt

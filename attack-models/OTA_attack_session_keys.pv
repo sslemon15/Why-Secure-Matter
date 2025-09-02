@@ -400,15 +400,15 @@ process
      ))
    )
 
-(*This analysis examines a compromised key scenario in Matter CASE resumption attacks.
-  While CASE resumption provides weaker security guarantees than full CASE establishment allowing 
-  attackers to derive operational keys from leaked ephemeral keys, the protocol maintains its security
-  properties. Even with operational AEAD keys, attackers cannot decrypt messages or violate integrity
-  because they lack the Source Node IDs required for proper nonce construction, which depends on 
-  the unavailable IPK. Consequently, all fundamental security properties are preserved despite the
-  key compromise. *)
+(* This analysis examines a compromised key scenario in Matter CASE resumption attacks.
+   While CASE resumption provides weaker security guarantees than full CASE establishment allowing 
+   attackers to derive operational keys from leaked ephemeral keys, the protocol maintains its security
+   properties. Even with operational AEAD keys, attackers cannot decrypt messages or violate integrity
+   because they lack the Source Node IDs required for proper nonce construction, which depends on 
+   the unavailable IPK. Consequently, all fundamental security properties are preserved despite the
+   key compromise. *)
 
-(*ref. of derivation: 
+(* ref. of derivation: 
     I2RKey || R2IKey || AttestationChallenge = Crypto_KDF(
         inputKey = SharedSecret,
         salt     = Sigma1.initiatorRandom || ResumptionID,

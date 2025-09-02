@@ -16,9 +16,6 @@
    - Guards placed before download/apply on both sides
    - Post-condition asserts OTAEnd implies previous VersionAccepted
 
-   Idempotency & retries:
-   - Requestor contains a Busy -> re-query branch
-   - Provider is kept minimal (single response path), but guarded
    ============================================================= *)
 
 free net : channel.
@@ -46,7 +43,8 @@ fun bs2str(bitstring): string [data, typeConverter].
 (* AEAD message construction (Matter, secure unicast)
    Structure: the protected frame is A || C, where A = Message Header used as AAD,
    and C = ciphertext || AEAD tag (MIC). The AAD equals the on-wire header fields:
-MessageFlags || SessionID || SecurityFlags || MessageCounter || [SourceNodeID] || [DestinationNodeID] || [Extensions].
+
+        MessageFlags || SessionID || SecurityFlags || MessageCounter || [SourceNodeID] || [DestinationNodeID] || [Extensions].
 
     Secure Unicast header privacy: S=0 and DSIZ=0 ⇒ Source/Destination Node IDs are omitted from the header.
     Thus, Node IDs are not visible on the wire.
@@ -177,8 +175,8 @@ event TokenIssuedSID(bitstring, bitstring).
 event ReadyToApply(bitstring).           (* sid *)
 event ApplyReqSent(bitstring, bitstring, bitstring).(* sid, token, nsv *)
 event ApplyReqRcv (bitstring, bitstring, bitstring).(* sid, token *)
-event ApplyRespSent(bitstring, bitstring).
-event ApplyRespRcv (bitstring, bitstring).
+event ApplyRespSent(bitstring, bitstring). (* sid, act *)
+event ApplyRespRcv (bitstring, bitstring). (* sid, act *)
 
 (* Version gating witness (Client-side decision) *)
 event VersionAccepted(bitstring, bitstring). (* CUR(), NSV *)
@@ -266,7 +264,7 @@ let Provider(provId: bitstring, k_i2r: key, k_r2i: key, sid: bitstring, src_ctx:
   out(net, (aadAR, aead_enc(k_r2i, aresp, nAR, aadAR)));
   event endP(); 0.
 
-(* === Requestor role (with Busy -> single requery) === *)
+(* === Requestor role  === *)
 let Requestor(reqId: bitstring, provId: bitstring, k_i2r: key, k_r2i: key, sid: bitstring, src_ctx: bitstring) =
 
   event OTABegin(reqId, provId, CUR());
@@ -387,7 +385,7 @@ query cur:bitstring, nv:bitstring, fw: image;
 query event(endP()).
 query event(endR()).
 
-(* === Process: concurrently spawn multiple independent sessions === *)
+
 (* === Process: concurrently spawn multiple independent sessions === *)
 process
   !(
@@ -407,11 +405,11 @@ process
      ))
    )
 
-(*This file analyzes a critical security breach where an attacker possesses both an ephemeral key and the IPK. 
-  This dual compromise, potentially occurring when the attacker is a malicious member of the same 
-  Matter Fabric, results in multiple security property failures. Unlike the previous scenario where 
-  operational key compromise alone was insufficient, this combination enables significant protocol 
-  violations.*) 
+   (* This file analyzes a critical security breach where an attacker possesses both an ephemeral key and the IPK. 
+      This dual compromise, potentially occurring when the attacker is a malicious member of the same 
+      Matter Fabric, results in multiple security property failures. Unlike the previous scenario where 
+      operational key compromise alone was insufficient, this combination enables significant protocol 
+      violations. *) 
 
 (*ref. of derivation: 
     TranscriptHash = Crypto_Hash(Msg1 || Msg2 || Msg3) 

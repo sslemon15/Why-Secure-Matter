@@ -227,13 +227,14 @@ query sid:bitstring, seq:bitstring;
 
 (* === Process: concurrently spawn multiple independent sessions === *)
 process
+     
+  !(
      new fwimg : image;
      new fileId: bitstring;
      let fwbs = image_to_bitstring(fwimg) in
      let dg   = hash(fwbs) in
      let sigf = sign(dg, sk(KM_VENDOR)) in
-     
-  !(
+
      new k_i2r : key;            (* AEAD key for I→R direction *)
      new k_r2i : key;            (* AEAD key for R→I direction *)
      new SESSID: bitstring;      (* Session identifier used in AAD/events *)

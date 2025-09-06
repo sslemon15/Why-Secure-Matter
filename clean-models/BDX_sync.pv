@@ -218,7 +218,7 @@ query sid:bitstring, seq:bitstring;
 query sid:bitstring, dg:bitstring, seq:bitstring;
     event(bdx_complete(sid, dg)) ==> inj-event(bdx_eof_sent(sid, seq)).
 
-(* 4)
+(* 4) EOF sent only after (and uniquely tied to) receiving the EOF-triggering BlockQuery*)
 query sid:bitstring, seq:bitstring;
   event(bdx_eof_sent(sid, seq)) ==> inj-event(bdx_query_rcv_eof(sid, seq)).
 

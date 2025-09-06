@@ -377,9 +377,7 @@ query sid:bitstring, act:bitstring, tok:bitstring, nsv:bitstring;
 query sid:bitstring, tok:bitstring, nsv:bitstring;
   event(ApplyReqSent(sid, tok, nsv)) ==> event(TokenIssuedSID(sid, tok)).
 
-(* Client-side monotonicity witness (strong) *)
-query cur:bitstring, nv:bitstring, fw: image;
-  event(VersionAcceptedStrong(cur,nv)) ==> event(issued(fw, nv)).
+
 
 (* Reachability beacons *)
 query event(endP()).

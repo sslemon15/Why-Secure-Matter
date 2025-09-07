@@ -41,6 +41,6 @@ The repository is organized into four main areas: `clean-models`, `attack-models
 |   ├── OTA_attack_session_keys.txt
 |   └── OTA_attack_complete.txt
 |
-└── OTA_Matter_proofs.pdf
+└── Matter_OTA_proofs.pdf
 ```
 

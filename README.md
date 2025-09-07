@@ -36,9 +36,9 @@ The repository is organized into four main areas: `clean-models`, `attack-models
 |   ├── case_resumption.pv
 │   └── pase.pv
 └── outputs
-    ├── OTA_Baseline.txt
+    ├── OTA_Matter_baseline.txt
     ├── BDX_sync.txt
-    ├── OTA_attack_session.txt
+    ├── OTA_attack_session_keys.txt
     └── OTA_attack_complete.txt
 ```
 

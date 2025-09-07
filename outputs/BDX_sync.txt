@@ -1,10 +1,10 @@
 Process 0 (that is, the initial process):
-{1}new fwimg: image;
-{2}new fileId: bitstring;
-{3}let fwbs: bitstring = fwimg in
-{4}let dg: bitstring = hash(fwbs) in
-{5}let sigf: bitstring = sign(dg,sk(KM_VENDOR)) in
-{6}!
+{1}!
+{2}new fwimg: image;
+{3}new fileId: bitstring;
+{4}let fwbs: bitstring = fwimg in
+{5}let dg: bitstring = hash(fwbs) in
+{6}let sigf: bitstring = sign(dg,sk(KM_VENDOR)) in
 {7}new k_i2r: key;
 {8}new k_r2i: key;
 {9}new SESSID: bitstring;
@@ -44,85 +44,105 @@ Process 0 (that is, the initial process):
     {42}let nBL: bitstring = nonce(SECFLAGS_UNICAST,ctrBL,src_ctx) in
     {43}event bdx_block_sent(sid_1,seq);
     {44}out(net, (aadBL,aead_enc(k_r2i_1,blk,nBL,aadBL)));
-    {45}let eof_msg: bitstring = BDX_BlockEOF in
-    {46}new ctrEOF: bitstring;
-    {47}let aadEOF: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctrEOF,nil,nil) in
-    {48}let nEOF: bitstring = nonce(SECFLAGS_UNICAST,ctrEOF,src_ctx) in
-    {49}event bdx_eof_sent(sid_1,dg);
-    {50}out(net, (aadEOF,aead_enc(k_r2i_1,eof_msg,nEOF,aadEOF)));
-    {51}in(net, (aadAE: bitstring,ctAE: bitstring));
-    {52}let (mfAE: bitstring,sidAE: bitstring,sfAE: bitstring,ctrAE: bitstring,srcAE: bitstring,dstAE: bitstring) = aadAE in
-    {53}let nAE: bitstring = nonce(sfAE,ctrAE,src_ctx) in
-    {54}if (aead_dec_validate(k_i2r_1,ctAE,nAE,aadAE) = ok) then
-    {55}let ae: bitstring = aead_dec(k_i2r_1,ctAE,nAE,aadAE) in
-    {56}if (sidAE = sid_1) then
-    {57}let BDX_BlockAckEOF = ae in
-    {58}event bdx_complete(sid_1,dg,fw)
+    {45}in(net, (aadBQ2: bitstring,ctBQ2: bitstring));
+    {46}let (mfBQ2: bitstring,sidBQ2: bitstring,sfBQ2: bitstring,ctrBQ2: bitstring,srcBQ2: bitstring,dstBQ2: bitstring) = aadBQ2 in
+    {47}if (sidBQ2 = sid_1) then
+    {48}let nBQ2: bitstring = nonce(sfBQ2,ctrBQ2,src_ctx) in
+    {49}if (aead_dec_validate(k_i2r_1,ctBQ2,nBQ2,aadBQ2) = ok) then
+    {50}let q2: bitstring = aead_dec(k_i2r_1,ctBQ2,nBQ2,aadBQ2) in
+    {51}let BDX_BlockQuery(seq_eof: bitstring) = q2 in
+    {52}if (seq_eof = hash((sid_1,seq))) then
+    {53}event bdx_query_rcv_eof(sid_1,seq_eof);
+    {54}let eof_msg: bitstring = BDX_BlockEOF in
+    {55}new ctrEOF: bitstring;
+    {56}let aadEOF: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctrEOF,nil,nil) in
+    {57}let nEOF: bitstring = nonce(SECFLAGS_UNICAST,ctrEOF,src_ctx) in
+    {58}event bdx_eof_sent(sid_1,seq_eof);
+    {59}out(net, (aadEOF,aead_enc(k_r2i_1,eof_msg,nEOF,aadEOF)));
+    {60}in(net, (aadAE: bitstring,ctAE: bitstring));
+    {61}let (mfAE: bitstring,sidAE: bitstring,sfAE: bitstring,ctrAE: bitstring,srcAE: bitstring,dstAE: bitstring) = aadAE in
+    {62}let nAE: bitstring = nonce(sfAE,ctrAE,src_ctx) in
+    {63}if (aead_dec_validate(k_i2r_1,ctAE,nAE,aadAE) = ok) then
+    {64}let ae: bitstring = aead_dec(k_i2r_1,ctAE,nAE,aadAE) in
+    {65}if (sidAE = sid_1) then
+    {66}let BDX_BlockAckEOF = ae in
+    {67}event bdx_complete(sid_1,dg)
 ) | (
-    {59}let k_i2r_2: key = k_i2r in
-    {60}let k_r2i_2: key = k_r2i in
-    {61}let sid_2: bitstring = SESSID in
-    {62}let src_ctx_1: bitstring = SRC_CTX in
-    {63}let fileId_2: bitstring = fileId in
-    {64}new ptc_1: bitstring;
-    {65}new blkSz: bitstring;
-    {66}new startOfs_1: bitstring;
-    {67}new deflen_1: bitstring;
-    {68}new lenVal_1: bitstring;
-    {69}let ri_1: bitstring = BDX_ReceiveInit(ptc_1,blkSz,startOfs_1,deflen_1,lenVal_1) in
-    {70}new ctrRI_1: bitstring;
-    {71}let aadRI_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctrRI_1,nil,nil) in
-    {72}let nRI_1: bitstring = nonce(SECFLAGS_UNICAST,ctrRI_1,src_ctx_1) in
-    {73}out(net, (aadRI_1,aead_enc(k_i2r_2,ri_1,nRI_1,aadRI_1)));
-    {74}in(net, (aadRA_1: bitstring,ctRA: bitstring));
-    {75}let (mfRA: bitstring,sidRA: bitstring,sfRA: bitstring,ctrRA_1: bitstring,srcRA: bitstring,dstRA: bitstring) = aadRA_1 in
-    {76}if (sidRA = sid_2) then
-    {77}let nRA_1: bitstring = nonce(sfRA,ctrRA_1,src_ctx_1) in
-    {78}if (aead_dec_validate(k_r2i_2,ctRA,nRA_1,aadRA_1) = ok) then
-    {79}let ra_1: bitstring = aead_dec(k_r2i_2,ctRA,nRA_1,aadRA_1) in
-    {80}let BDX_ReceiveAccept(blkSzAcc: bitstring,startAcc: bitstring,defAcc: bitstring,lenAcc: bitstring) = ra_1 in
-    {81}event bdx_params_agreed(sid_2,blkSzAcc,defAcc,startAcc);
-    {82}new seq_1: bitstring;
-    {83}let q_1: bitstring = BDX_BlockQuery(seq_1) in
-    {84}new ctrBQ_1: bitstring;
-    {85}let aadBQ_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctrBQ_1,nil,nil) in
-    {86}let nBQ_1: bitstring = nonce(SECFLAGS_UNICAST,ctrBQ_1,src_ctx_1) in
-    {87}event bdx_query_sent(sid_2,seq_1);
-    {88}out(net, (aadBQ_1,aead_enc(k_i2r_2,q_1,nBQ_1,aadBQ_1)));
-    {89}in(net, (aadBL_1: bitstring,ctBL: bitstring));
-    {90}let (mfBL: bitstring,sidBL: bitstring,sfBL: bitstring,ctrBL_1: bitstring,srcBL: bitstring,dstBL: bitstring) = aadBL_1 in
-    {91}if (sidBL = sid_2) then
-    {92}let nBL_1: bitstring = nonce(sfBL,ctrBL_1,src_ctx_1) in
-    {93}if (aead_dec_validate(k_r2i_2,ctBL,nBL_1,aadBL_1) = ok) then
-    {94}let blk_1: bitstring = aead_dec(k_r2i_2,ctBL,nBL_1,aadBL_1) in
-    {95}let BDX_Block(seq2: bitstring,chunk_1: bitstring) = blk_1 in
-    {96}if (seq2 = seq_1) then
-    {97}event bdx_block_rcv(sid_2,seq2);
-    {98}let bdx_payload(fw_1: image,dg_1: bitstring,sigf_1: bitstring) = chunk_1 in
-    {99}in(net, (aadEOF_1: bitstring,ctEOF: bitstring));
-    {100}let (mfEOF: bitstring,sidEOF: bitstring,sfEOF: bitstring,ctrEOF_1: bitstring,srcEOF: bitstring,dstEOF: bitstring) = aadEOF_1 in
-    {101}if (sidEOF = sid_2) then
-    {102}let nEOF_1: bitstring = nonce(sfEOF,ctrEOF_1,src_ctx_1) in
-    {103}if (aead_dec_validate(k_r2i_2,ctEOF,nEOF_1,aadEOF_1) = ok) then
-    {104}let eof: bitstring = aead_dec(k_r2i_2,ctEOF,nEOF_1,aadEOF_1) in
-    {105}let BDX_BlockEOF = eof in
-    {106}let ae_1: bitstring = BDX_BlockAckEOF in
-    {107}new ctrAE_1: bitstring;
-    {108}let aadAE_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctrAE_1,nil,nil) in
-    {109}let nAE_1: bitstring = nonce(SECFLAGS_UNICAST,ctrAE_1,src_ctx_1) in
-    {110}out(net, (aadAE_1,aead_enc(k_i2r_2,ae_1,nAE_1,aadAE_1)))
+    {68}let k_i2r_2: key = k_i2r in
+    {69}let k_r2i_2: key = k_r2i in
+    {70}let sid_2: bitstring = SESSID in
+    {71}let src_ctx_1: bitstring = SRC_CTX in
+    {72}let fileId_2: bitstring = fileId in
+    {73}new ptc_1: bitstring;
+    {74}new blkSz: bitstring;
+    {75}new startOfs_1: bitstring;
+    {76}new deflen_1: bitstring;
+    {77}new lenVal_1: bitstring;
+    {78}let ri_1: bitstring = BDX_ReceiveInit(ptc_1,blkSz,startOfs_1,deflen_1,lenVal_1) in
+    {79}new ctrRI_1: bitstring;
+    {80}let aadRI_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctrRI_1,nil,nil) in
+    {81}let nRI_1: bitstring = nonce(SECFLAGS_UNICAST,ctrRI_1,src_ctx_1) in
+    {82}out(net, (aadRI_1,aead_enc(k_i2r_2,ri_1,nRI_1,aadRI_1)));
+    {83}in(net, (aadRA_1: bitstring,ctRA: bitstring));
+    {84}let (mfRA: bitstring,sidRA: bitstring,sfRA: bitstring,ctrRA_1: bitstring,srcRA: bitstring,dstRA: bitstring) = aadRA_1 in
+    {85}if (sidRA = sid_2) then
+    {86}let nRA_1: bitstring = nonce(sfRA,ctrRA_1,src_ctx_1) in
+    {87}if (aead_dec_validate(k_r2i_2,ctRA,nRA_1,aadRA_1) = ok) then
+    {88}let ra_1: bitstring = aead_dec(k_r2i_2,ctRA,nRA_1,aadRA_1) in
+    {89}let BDX_ReceiveAccept(blkSzAcc: bitstring,startAcc: bitstring,defAcc: bitstring,lenAcc: bitstring) = ra_1 in
+    {90}event bdx_params_agreed(sid_2,blkSzAcc,defAcc,startAcc);
+    {91}new seq_1: bitstring;
+    {92}let q_1: bitstring = BDX_BlockQuery(seq_1) in
+    {93}new ctrBQ_1: bitstring;
+    {94}let aadBQ_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctrBQ_1,nil,nil) in
+    {95}let nBQ_1: bitstring = nonce(SECFLAGS_UNICAST,ctrBQ_1,src_ctx_1) in
+    {96}event bdx_query_sent(sid_2,seq_1);
+    {97}out(net, (aadBQ_1,aead_enc(k_i2r_2,q_1,nBQ_1,aadBQ_1)));
+    {98}in(net, (aadBL_1: bitstring,ctBL: bitstring));
+    {99}let (mfBL: bitstring,sidBL: bitstring,sfBL: bitstring,ctrBL_1: bitstring,srcBL: bitstring,dstBL: bitstring) = aadBL_1 in
+    {100}if (sidBL = sid_2) then
+    {101}let nBL_1: bitstring = nonce(sfBL,ctrBL_1,src_ctx_1) in
+    {102}if (aead_dec_validate(k_r2i_2,ctBL,nBL_1,aadBL_1) = ok) then
+    {103}let blk_1: bitstring = aead_dec(k_r2i_2,ctBL,nBL_1,aadBL_1) in
+    {104}let BDX_Block(seq2: bitstring,chunk_1: bitstring) = blk_1 in
+    {105}if (seq2 = seq_1) then
+    {106}event bdx_block_rcv(sid_2,seq2);
+    {107}let bdx_payload(fw_1: image,dg_1: bitstring,sigf_1: bitstring) = chunk_1 in
+    {108}let seq_eof_1: bitstring = hash((sid_2,seq_1)) in
+    {109}let q2_1: bitstring = BDX_BlockQuery(seq_eof_1) in
+    {110}new ctrBQ2_1: bitstring;
+    {111}let aadBQ2_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctrBQ2_1,nil,nil) in
+    {112}let nBQ2_1: bitstring = nonce(SECFLAGS_UNICAST,ctrBQ2_1,src_ctx_1) in
+    {113}event bdx_query_sent_eof(sid_2,seq_eof_1);
+    {114}out(net, (aadBQ2_1,aead_enc(k_i2r_2,q2_1,nBQ2_1,aadBQ2_1)));
+    {115}in(net, (aadEOF_1: bitstring,ctEOF: bitstring));
+    {116}let (mfEOF: bitstring,sidEOF: bitstring,sfEOF: bitstring,ctrEOF_1: bitstring,srcEOF: bitstring,dstEOF: bitstring) = aadEOF_1 in
+    {117}if (sidEOF = sid_2) then
+    {118}let nEOF_1: bitstring = nonce(sfEOF,ctrEOF_1,src_ctx_1) in
+    {119}if (aead_dec_validate(k_r2i_2,ctEOF,nEOF_1,aadEOF_1) = ok) then
+    {120}let eof: bitstring = aead_dec(k_r2i_2,ctEOF,nEOF_1,aadEOF_1) in
+    {121}let BDX_BlockEOF = eof in
+    {122}let ae_1: bitstring = BDX_BlockAckEOF in
+    {123}new ctrAE_1: bitstring;
+    {124}let aadAE_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctrAE_1,nil,nil) in
+    {125}let nAE_1: bitstring = nonce(SECFLAGS_UNICAST,ctrAE_1,src_ctx_1) in
+    {126}out(net, (aadAE_1,aead_enc(k_i2r_2,ae_1,nAE_1,aadAE_1)))
 )
 
-File "BDX_sync.pv", line 186, characters 7-9:
+File "BDX_sync.pv", line 209, characters 7-9:
 Warning: identifier sid rebound.
-File "BDX_sync.pv", line 191, characters 7-9:
+File "BDX_sync.pv", line 214, characters 7-9:
 Warning: identifier sid rebound.
-File "BDX_sync.pv", line 195, characters 7-9:
+File "BDX_sync.pv", line 218, characters 7-9:
+Warning: identifier sid rebound.
+File "BDX_sync.pv", line 222, characters 7-9:
+Warning: identifier sid rebound.
+File "BDX_sync.pv", line 226, characters 7-9:
 Warning: identifier sid rebound.
 --  Process 1 (that is, process 0, with let moved downwards):
-{1}new fwimg: image;
-{2}new fileId: bitstring;
-{6}!
+{1}!
+{2}new fwimg: image;
+{3}new fileId: bitstring;
 {7}new k_i2r: key;
 {8}new k_r2i: key;
 {9}new SESSID: bitstring;
@@ -159,86 +179,102 @@ Warning: identifier sid rebound.
     {42}let nBL: bitstring = nonce(SECFLAGS_UNICAST,ctrBL,src_ctx) in
     {41}let aadBL: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctrBL,nil,nil) in
     {15}let fw: image = fwimg in
-    {3}let fwbs: bitstring = fwimg in
-    {4}let dg: bitstring = hash(fwbs) in
-    {5}let sigf: bitstring = sign(dg,sk(KM_VENDOR)) in
+    {4}let fwbs: bitstring = fwimg in
+    {5}let dg: bitstring = hash(fwbs) in
+    {6}let sigf: bitstring = sign(dg,sk(KM_VENDOR)) in
     {38}let chunk: bitstring = bdx_payload(fw,dg,sigf) in
     {39}let blk: bitstring = BDX_Block(seq,chunk) in
     {44}out(net, (aadBL,aead_enc(k_r2i_1,blk,nBL,aadBL)));
-    {46}new ctrEOF: bitstring;
-    {49}event bdx_eof_sent(sid_1,dg);
-    {48}let nEOF: bitstring = nonce(SECFLAGS_UNICAST,ctrEOF,src_ctx) in
-    {47}let aadEOF: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctrEOF,nil,nil) in
-    {45}let eof_msg: bitstring = BDX_BlockEOF in
-    {50}out(net, (aadEOF,aead_enc(k_r2i_1,eof_msg,nEOF,aadEOF)));
-    {51}in(net, (aadAE: bitstring,ctAE: bitstring));
-    {52}let (mfAE: bitstring,sidAE: bitstring,sfAE: bitstring,ctrAE: bitstring,srcAE: bitstring,dstAE: bitstring) = aadAE in
-    {53}let nAE: bitstring = nonce(sfAE,ctrAE,src_ctx) in
-    {54}if (aead_dec_validate(k_i2r_1,ctAE,nAE,aadAE) = ok) then
-    {55}let ae: bitstring = aead_dec(k_i2r_1,ctAE,nAE,aadAE) in
-    {56}if (sidAE = sid_1) then
-    {57}let BDX_BlockAckEOF = ae in
-    {58}event bdx_complete(sid_1,dg,fw)
+    {45}in(net, (aadBQ2: bitstring,ctBQ2: bitstring));
+    {46}let (mfBQ2: bitstring,sidBQ2: bitstring,sfBQ2: bitstring,ctrBQ2: bitstring,srcBQ2: bitstring,dstBQ2: bitstring) = aadBQ2 in
+    {47}if (sidBQ2 = sid_1) then
+    {48}let nBQ2: bitstring = nonce(sfBQ2,ctrBQ2,src_ctx) in
+    {49}if (aead_dec_validate(k_i2r_1,ctBQ2,nBQ2,aadBQ2) = ok) then
+    {50}let q2: bitstring = aead_dec(k_i2r_1,ctBQ2,nBQ2,aadBQ2) in
+    {51}let BDX_BlockQuery(seq_eof: bitstring) = q2 in
+    {52}if (seq_eof = hash((sid_1,seq))) then
+    {53}event bdx_query_rcv_eof(sid_1,seq_eof);
+    {55}new ctrEOF: bitstring;
+    {58}event bdx_eof_sent(sid_1,seq_eof);
+    {57}let nEOF: bitstring = nonce(SECFLAGS_UNICAST,ctrEOF,src_ctx) in
+    {56}let aadEOF: bitstring = (MSGFLAGS,sid_1,SECFLAGS_UNICAST,ctrEOF,nil,nil) in
+    {54}let eof_msg: bitstring = BDX_BlockEOF in
+    {59}out(net, (aadEOF,aead_enc(k_r2i_1,eof_msg,nEOF,aadEOF)));
+    {60}in(net, (aadAE: bitstring,ctAE: bitstring));
+    {61}let (mfAE: bitstring,sidAE: bitstring,sfAE: bitstring,ctrAE: bitstring,srcAE: bitstring,dstAE: bitstring) = aadAE in
+    {62}let nAE: bitstring = nonce(sfAE,ctrAE,src_ctx) in
+    {63}if (aead_dec_validate(k_i2r_1,ctAE,nAE,aadAE) = ok) then
+    {64}let ae: bitstring = aead_dec(k_i2r_1,ctAE,nAE,aadAE) in
+    {65}if (sidAE = sid_1) then
+    {66}let BDX_BlockAckEOF = ae in
+    {67}event bdx_complete(sid_1,dg)
 ) | (
-    {64}new ptc_1: bitstring;
-    {65}new blkSz: bitstring;
-    {66}new startOfs_1: bitstring;
-    {67}new deflen_1: bitstring;
-    {68}new lenVal_1: bitstring;
-    {70}new ctrRI_1: bitstring;
-    {62}let src_ctx_1: bitstring = SRC_CTX in
-    {72}let nRI_1: bitstring = nonce(SECFLAGS_UNICAST,ctrRI_1,src_ctx_1) in
-    {61}let sid_2: bitstring = SESSID in
-    {71}let aadRI_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctrRI_1,nil,nil) in
-    {69}let ri_1: bitstring = BDX_ReceiveInit(ptc_1,blkSz,startOfs_1,deflen_1,lenVal_1) in
-    {59}let k_i2r_2: key = k_i2r in
-    {73}out(net, (aadRI_1,aead_enc(k_i2r_2,ri_1,nRI_1,aadRI_1)));
-    {74}in(net, (aadRA_1: bitstring,ctRA: bitstring));
-    {75}let (mfRA: bitstring,sidRA: bitstring,sfRA: bitstring,ctrRA_1: bitstring,srcRA: bitstring,dstRA: bitstring) = aadRA_1 in
-    {76}if (sidRA = sid_2) then
-    {77}let nRA_1: bitstring = nonce(sfRA,ctrRA_1,src_ctx_1) in
-    {60}let k_r2i_2: key = k_r2i in
-    {78}if (aead_dec_validate(k_r2i_2,ctRA,nRA_1,aadRA_1) = ok) then
-    {79}let ra_1: bitstring = aead_dec(k_r2i_2,ctRA,nRA_1,aadRA_1) in
-    {80}let BDX_ReceiveAccept(blkSzAcc: bitstring,startAcc: bitstring,defAcc: bitstring,lenAcc: bitstring) = ra_1 in
-    {81}event bdx_params_agreed(sid_2,blkSzAcc,defAcc,startAcc);
-    {82}new seq_1: bitstring;
-    {84}new ctrBQ_1: bitstring;
-    {87}event bdx_query_sent(sid_2,seq_1);
-    {86}let nBQ_1: bitstring = nonce(SECFLAGS_UNICAST,ctrBQ_1,src_ctx_1) in
-    {85}let aadBQ_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctrBQ_1,nil,nil) in
-    {83}let q_1: bitstring = BDX_BlockQuery(seq_1) in
-    {88}out(net, (aadBQ_1,aead_enc(k_i2r_2,q_1,nBQ_1,aadBQ_1)));
-    {89}in(net, (aadBL_1: bitstring,ctBL: bitstring));
-    {90}let (mfBL: bitstring,sidBL: bitstring,sfBL: bitstring,ctrBL_1: bitstring,srcBL: bitstring,dstBL: bitstring) = aadBL_1 in
-    {91}if (sidBL = sid_2) then
-    {92}let nBL_1: bitstring = nonce(sfBL,ctrBL_1,src_ctx_1) in
-    {93}if (aead_dec_validate(k_r2i_2,ctBL,nBL_1,aadBL_1) = ok) then
-    {94}let blk_1: bitstring = aead_dec(k_r2i_2,ctBL,nBL_1,aadBL_1) in
-    {95}let BDX_Block(seq2: bitstring,chunk_1: bitstring) = blk_1 in
-    {96}if (seq2 = seq_1) then
-    {97}event bdx_block_rcv(sid_2,seq2);
-    {98}let bdx_payload(fw_1: image,dg_1: bitstring,sigf_1: bitstring) = chunk_1 in
-    {99}in(net, (aadEOF_1: bitstring,ctEOF: bitstring));
-    {100}let (mfEOF: bitstring,sidEOF: bitstring,sfEOF: bitstring,ctrEOF_1: bitstring,srcEOF: bitstring,dstEOF: bitstring) = aadEOF_1 in
-    {101}if (sidEOF = sid_2) then
-    {102}let nEOF_1: bitstring = nonce(sfEOF,ctrEOF_1,src_ctx_1) in
-    {103}if (aead_dec_validate(k_r2i_2,ctEOF,nEOF_1,aadEOF_1) = ok) then
-    {104}let eof: bitstring = aead_dec(k_r2i_2,ctEOF,nEOF_1,aadEOF_1) in
-    {105}let BDX_BlockEOF = eof in
-    {107}new ctrAE_1: bitstring;
-    {109}let nAE_1: bitstring = nonce(SECFLAGS_UNICAST,ctrAE_1,src_ctx_1) in
-    {108}let aadAE_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctrAE_1,nil,nil) in
-    {106}let ae_1: bitstring = BDX_BlockAckEOF in
-    {110}out(net, (aadAE_1,aead_enc(k_i2r_2,ae_1,nAE_1,aadAE_1)))
+    {73}new ptc_1: bitstring;
+    {74}new blkSz: bitstring;
+    {75}new startOfs_1: bitstring;
+    {76}new deflen_1: bitstring;
+    {77}new lenVal_1: bitstring;
+    {79}new ctrRI_1: bitstring;
+    {71}let src_ctx_1: bitstring = SRC_CTX in
+    {81}let nRI_1: bitstring = nonce(SECFLAGS_UNICAST,ctrRI_1,src_ctx_1) in
+    {70}let sid_2: bitstring = SESSID in
+    {80}let aadRI_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctrRI_1,nil,nil) in
+    {78}let ri_1: bitstring = BDX_ReceiveInit(ptc_1,blkSz,startOfs_1,deflen_1,lenVal_1) in
+    {68}let k_i2r_2: key = k_i2r in
+    {82}out(net, (aadRI_1,aead_enc(k_i2r_2,ri_1,nRI_1,aadRI_1)));
+    {83}in(net, (aadRA_1: bitstring,ctRA: bitstring));
+    {84}let (mfRA: bitstring,sidRA: bitstring,sfRA: bitstring,ctrRA_1: bitstring,srcRA: bitstring,dstRA: bitstring) = aadRA_1 in
+    {85}if (sidRA = sid_2) then
+    {86}let nRA_1: bitstring = nonce(sfRA,ctrRA_1,src_ctx_1) in
+    {69}let k_r2i_2: key = k_r2i in
+    {87}if (aead_dec_validate(k_r2i_2,ctRA,nRA_1,aadRA_1) = ok) then
+    {88}let ra_1: bitstring = aead_dec(k_r2i_2,ctRA,nRA_1,aadRA_1) in
+    {89}let BDX_ReceiveAccept(blkSzAcc: bitstring,startAcc: bitstring,defAcc: bitstring,lenAcc: bitstring) = ra_1 in
+    {90}event bdx_params_agreed(sid_2,blkSzAcc,defAcc,startAcc);
+    {91}new seq_1: bitstring;
+    {93}new ctrBQ_1: bitstring;
+    {96}event bdx_query_sent(sid_2,seq_1);
+    {95}let nBQ_1: bitstring = nonce(SECFLAGS_UNICAST,ctrBQ_1,src_ctx_1) in
+    {94}let aadBQ_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctrBQ_1,nil,nil) in
+    {92}let q_1: bitstring = BDX_BlockQuery(seq_1) in
+    {97}out(net, (aadBQ_1,aead_enc(k_i2r_2,q_1,nBQ_1,aadBQ_1)));
+    {98}in(net, (aadBL_1: bitstring,ctBL: bitstring));
+    {99}let (mfBL: bitstring,sidBL: bitstring,sfBL: bitstring,ctrBL_1: bitstring,srcBL: bitstring,dstBL: bitstring) = aadBL_1 in
+    {100}if (sidBL = sid_2) then
+    {101}let nBL_1: bitstring = nonce(sfBL,ctrBL_1,src_ctx_1) in
+    {102}if (aead_dec_validate(k_r2i_2,ctBL,nBL_1,aadBL_1) = ok) then
+    {103}let blk_1: bitstring = aead_dec(k_r2i_2,ctBL,nBL_1,aadBL_1) in
+    {104}let BDX_Block(seq2: bitstring,chunk_1: bitstring) = blk_1 in
+    {105}if (seq2 = seq_1) then
+    {106}event bdx_block_rcv(sid_2,seq2);
+    {107}let bdx_payload(fw_1: image,dg_1: bitstring,sigf_1: bitstring) = chunk_1 in
+    {110}new ctrBQ2_1: bitstring;
+    {108}let seq_eof_1: bitstring = hash((sid_2,seq_1)) in
+    {113}event bdx_query_sent_eof(sid_2,seq_eof_1);
+    {112}let nBQ2_1: bitstring = nonce(SECFLAGS_UNICAST,ctrBQ2_1,src_ctx_1) in
+    {111}let aadBQ2_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctrBQ2_1,nil,nil) in
+    {109}let q2_1: bitstring = BDX_BlockQuery(seq_eof_1) in
+    {114}out(net, (aadBQ2_1,aead_enc(k_i2r_2,q2_1,nBQ2_1,aadBQ2_1)));
+    {115}in(net, (aadEOF_1: bitstring,ctEOF: bitstring));
+    {116}let (mfEOF: bitstring,sidEOF: bitstring,sfEOF: bitstring,ctrEOF_1: bitstring,srcEOF: bitstring,dstEOF: bitstring) = aadEOF_1 in
+    {117}if (sidEOF = sid_2) then
+    {118}let nEOF_1: bitstring = nonce(sfEOF,ctrEOF_1,src_ctx_1) in
+    {119}if (aead_dec_validate(k_r2i_2,ctEOF,nEOF_1,aadEOF_1) = ok) then
+    {120}let eof: bitstring = aead_dec(k_r2i_2,ctEOF,nEOF_1,aadEOF_1) in
+    {121}let BDX_BlockEOF = eof in
+    {123}new ctrAE_1: bitstring;
+    {125}let nAE_1: bitstring = nonce(SECFLAGS_UNICAST,ctrAE_1,src_ctx_1) in
+    {124}let aadAE_1: bitstring = (MSGFLAGS,sid_2,SECFLAGS_UNICAST,ctrAE_1,nil,nil) in
+    {122}let ae_1: bitstring = BDX_BlockAckEOF in
+    {126}out(net, (aadAE_1,aead_enc(k_i2r_2,ae_1,nAE_1,aadAE_1)))
 )
 
 -- Query inj-event(bdx_block_rcv(sid_3,seq_2)) ==> inj-event(bdx_block_sent(sid_3,seq_2)) in process 1.
 Translating the process into Horn clauses...
 Completing...
-200 rules inserted. Base: 156 rules (40 with conclusion selected). Queue: 5 rules.
+200 rules inserted. Base: 152 rules (38 with conclusion selected). Queue: 9 rules.
 Starting query inj-event(bdx_block_rcv(sid_3,seq_2)) ==> inj-event(bdx_block_sent(sid_3,seq_2))
-goal reachable: b-inj-event(bdx_block_sent(SESSID_1,seq_2),@occ43_1) -> inj-event(bdx_block_rcv(SESSID_1,seq_2),@occ97_1)
+goal reachable: b-inj-event(bdx_block_sent(SESSID_1,seq_2),@occ43_1) -> inj-event(bdx_block_rcv(SESSID_1,seq_2),@occ106_1)
 The hypothesis occurs strictly before the conclusion.
 Abbreviations:
 SESSID_1 = SESSID[!1 = @sid]
@@ -253,17 +289,18 @@ ctrRI_2 = ctrRI_1[!1 = @sid]
 SRC_CTX_1 = SRC_CTX[!1 = @sid]
 ctrRA_2 = ctrRA[ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
 seq_2 = seq_1[ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid]
 ctrBQ_2 = ctrBQ_1[ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
 ctrBL_2 = ctrBL[ctBQ = aead_enc(k_i2r_3,BDX_BlockQuery(seq_2),nonce(SECFLAGS_UNICAST[],ctrBQ_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil)),aadBQ = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil),ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
-@occ97_1 = @occ97[ctBL = aead_enc(k_r2i_3,BDX_Block(seq_2,bdx_payload(fwimg[],hash(fwimg[]),sign(hash(fwimg[]),sk(KM_VENDOR)))),nonce(SECFLAGS_UNICAST[],ctrBL_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil)),aadBL_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil),ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
+@occ106_1 = @occ106[ctBL = aead_enc(k_r2i_3,BDX_Block(seq_2,bdx_payload(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR)))),nonce(SECFLAGS_UNICAST[],ctrBL_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil)),aadBL_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil),ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
 @occ43_1 = @occ43[ctBQ = aead_enc(k_i2r_3,BDX_BlockQuery(seq_2),nonce(SECFLAGS_UNICAST[],ctrBQ_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil)),aadBQ = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil),ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
 RESULT inj-event(bdx_block_rcv(sid_3,seq_2)) ==> inj-event(bdx_block_sent(sid_3,seq_2)) is true.
 -- Query inj-event(bdx_block_rcv(sid_3,seq_2)) ==> inj-event(bdx_query_sent(sid_3,seq_2)) in process 1.
 Translating the process into Horn clauses...
 Completing...
-200 rules inserted. Base: 156 rules (40 with conclusion selected). Queue: 5 rules.
+200 rules inserted. Base: 152 rules (38 with conclusion selected). Queue: 9 rules.
 Starting query inj-event(bdx_block_rcv(sid_3,seq_2)) ==> inj-event(bdx_query_sent(sid_3,seq_2))
-goal reachable: b-event(@p_act(@occ89_1,((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil),aead_enc(k_r2i_3,BDX_Block(seq_2,bdx_payload(fwimg[],hash(fwimg[]),sign(hash(fwimg[]),sk(KM_VENDOR)))),nonce(SECFLAGS_UNICAST[],ctrBL_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil))))) && b-inj-event(bdx_query_sent(SESSID_1,seq_2),@occ87_1) -> inj-event(bdx_block_rcv(SESSID_1,seq_2),@occ97_2)
+goal reachable: b-event(@p_act(@occ98_1,((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil),aead_enc(k_r2i_3,BDX_Block(seq_2,bdx_payload(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR)))),nonce(SECFLAGS_UNICAST[],ctrBL_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil))))) && b-inj-event(bdx_query_sent(SESSID_1,seq_2),@occ96_1) -> inj-event(bdx_block_rcv(SESSID_1,seq_2),@occ106_2)
 The 1st, 2nd hypotheses occur strictly before the conclusion.
 Abbreviations:
 SESSID_1 = SESSID[!1 = @sid]
@@ -278,21 +315,23 @@ ctrRI_2 = ctrRI_1[!1 = @sid]
 SRC_CTX_1 = SRC_CTX[!1 = @sid]
 ctrRA_2 = ctrRA[ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
 seq_2 = seq_1[ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid]
 ctrBQ_2 = ctrBQ_1[ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
 ctrBL_2 = ctrBL[ctBQ = aead_enc(k_i2r_3,BDX_BlockQuery(seq_2),nonce(SECFLAGS_UNICAST[],ctrBQ_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil)),aadBQ = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil),ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
-@occ97_2 = @occ97_1[ctBL = aead_enc(k_r2i_3,BDX_Block(seq_2,bdx_payload(fwimg[],hash(fwimg[]),sign(hash(fwimg[]),sk(KM_VENDOR)))),nonce(SECFLAGS_UNICAST[],ctrBL_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil)),aadBL_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil),ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
-@occ89_1 = @occ89[!1 = @sid]
-@occ87_1 = @occ87[ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
+@occ106_2 = @occ106_1[ctBL = aead_enc(k_r2i_3,BDX_Block(seq_2,bdx_payload(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR)))),nonce(SECFLAGS_UNICAST[],ctrBL_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil)),aadBL_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil),ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
+@occ98_1 = @occ98[!1 = @sid]
+@occ96_1 = @occ96[ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
 RESULT inj-event(bdx_block_rcv(sid_3,seq_2)) ==> inj-event(bdx_query_sent(sid_3,seq_2)) is true.
--- Query inj-event(bdx_complete(sid_3,dg_2,fw_2)) ==> inj-event(bdx_eof_sent(sid_3,dg_2)) in process 1.
+-- Query inj-event(bdx_complete(sid_3,dg_2)) ==> inj-event(bdx_eof_sent(sid_3,seq_2)) in process 1.
 Translating the process into Horn clauses...
 Completing...
-200 rules inserted. Base: 160 rules (40 with conclusion selected). Queue: 6 rules.
-Starting query inj-event(bdx_complete(sid_3,dg_2,fw_2)) ==> inj-event(bdx_eof_sent(sid_3,dg_2))
-goal reachable: b-event(@p_act(@occ51_2,((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrAE_2,nil,nil),aead_enc(k_i2r_3,BDX_BlockAckEOF,nonce(SECFLAGS_UNICAST[],ctrAE_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrAE_2,nil,nil))))) && b-inj-event(bdx_eof_sent(SESSID_1,hash(fwimg[])),@occ49_1) -> inj-event(bdx_complete(SESSID_1,hash(fwimg[]),fwimg[]),@occ58_1)
+200 rules inserted. Base: 158 rules (38 with conclusion selected). Queue: 8 rules.
+Starting query inj-event(bdx_complete(sid_3,dg_2)) ==> inj-event(bdx_eof_sent(sid_3,seq_2))
+goal reachable: b-event(@p_act(@occ60_2,((MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrAE_2,nil,nil),aead_enc(k_i2r_3,BDX_BlockAckEOF,nonce(SECFLAGS_UNICAST[],ctrAE_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrAE_2,nil,nil))))) && b-inj-event(bdx_eof_sent(SESSID_1,hash((SESSID_1,seq_2))),@occ58_1) -> inj-event(bdx_complete(SESSID_1,hash(fwimg_1)),@occ67_1)
 The 1st, 2nd hypotheses occur strictly before the conclusion.
 Abbreviations:
 SESSID_1 = SESSID[!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid]
 k_i2r_3 = k_i2r[!1 = @sid]
 k_r2i_3 = k_r2i[!1 = @sid]
 blkSz_1 = blkSz[!1 = @sid]
@@ -305,13 +344,68 @@ SRC_CTX_1 = SRC_CTX[!1 = @sid]
 ctrRA_2 = ctrRA[ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
 seq_2 = seq_1[ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
 ctrBQ_2 = ctrBQ_1[ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
-ctrEOF_2 = ctrEOF[ctBQ = aead_enc(k_i2r_3,BDX_BlockQuery(seq_2),nonce(SECFLAGS_UNICAST[],ctrBQ_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil)),aadBQ = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil),ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
 ctrBL_2 = ctrBL[ctBQ = aead_enc(k_i2r_3,BDX_BlockQuery(seq_2),nonce(SECFLAGS_UNICAST[],ctrBQ_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil)),aadBQ = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil),ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
-ctrAE_2 = ctrAE_1[ctEOF = aead_enc(k_r2i_3,BDX_BlockEOF,nonce(SECFLAGS_UNICAST[],ctrEOF_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrEOF_2,nil,nil)),aadEOF_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrEOF_2,nil,nil),ctBL = aead_enc(k_r2i_3,BDX_Block(seq_2,bdx_payload(fwimg[],hash(fwimg[]),sign(hash(fwimg[]),sk(KM_VENDOR)))),nonce(SECFLAGS_UNICAST[],ctrBL_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil)),aadBL_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil),ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
-@occ58_1 = @occ58[ctAE = aead_enc(k_i2r_3,BDX_BlockAckEOF,nonce(SECFLAGS_UNICAST[],ctrAE_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrAE_2,nil,nil)),aadAE = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrAE_2,nil,nil),ctBQ = aead_enc(k_i2r_3,BDX_BlockQuery(seq_2),nonce(SECFLAGS_UNICAST[],ctrBQ_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil)),aadBQ = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil),ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
-@occ51_2 = @occ51_1[!1 = @sid]
-@occ49_1 = @occ49[ctBQ = aead_enc(k_i2r_3,BDX_BlockQuery(seq_2),nonce(SECFLAGS_UNICAST[],ctrBQ_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil)),aadBQ = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil),ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
-RESULT inj-event(bdx_complete(sid_3,dg_2,fw_2)) ==> inj-event(bdx_eof_sent(sid_3,dg_2)) is true.
+ctrBQ2_2 = ctrBQ2_1[ctBL = aead_enc(k_r2i_3,BDX_Block(seq_2,bdx_payload(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR)))),nonce(SECFLAGS_UNICAST[],ctrBL_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil)),aadBL_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil),ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
+ctrEOF_2 = ctrEOF[ctBQ2 = aead_enc(k_i2r_3,BDX_BlockQuery(hash((SESSID_1,seq_2))),nonce(SECFLAGS_UNICAST[],ctrBQ2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ2_2,nil,nil)),aadBQ2 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ2_2,nil,nil),ctBQ = aead_enc(k_i2r_3,BDX_BlockQuery(seq_2),nonce(SECFLAGS_UNICAST[],ctrBQ_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil)),aadBQ = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil),ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
+ctrAE_2 = ctrAE_1[ctEOF = aead_enc(k_r2i_3,BDX_BlockEOF,nonce(SECFLAGS_UNICAST[],ctrEOF_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrEOF_2,nil,nil)),aadEOF_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrEOF_2,nil,nil),ctBL = aead_enc(k_r2i_3,BDX_Block(seq_2,bdx_payload(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR)))),nonce(SECFLAGS_UNICAST[],ctrBL_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil)),aadBL_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil),ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
+@occ67_1 = @occ67[ctAE = aead_enc(k_i2r_3,BDX_BlockAckEOF,nonce(SECFLAGS_UNICAST[],ctrAE_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrAE_2,nil,nil)),aadAE = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrAE_2,nil,nil),ctBQ2 = aead_enc(k_i2r_3,BDX_BlockQuery(hash((SESSID_1,seq_2))),nonce(SECFLAGS_UNICAST[],ctrBQ2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ2_2,nil,nil)),aadBQ2 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ2_2,nil,nil),ctBQ = aead_enc(k_i2r_3,BDX_BlockQuery(seq_2),nonce(SECFLAGS_UNICAST[],ctrBQ_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil)),aadBQ = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil),ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
+@occ60_2 = @occ60_1[!1 = @sid]
+@occ58_1 = @occ58[ctBQ2 = aead_enc(k_i2r_3,BDX_BlockQuery(hash((SESSID_1,seq_2))),nonce(SECFLAGS_UNICAST[],ctrBQ2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ2_2,nil,nil)),aadBQ2 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ2_2,nil,nil),ctBQ = aead_enc(k_i2r_3,BDX_BlockQuery(seq_2),nonce(SECFLAGS_UNICAST[],ctrBQ_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil)),aadBQ = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil),ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
+RESULT inj-event(bdx_complete(sid_3,dg_2)) ==> inj-event(bdx_eof_sent(sid_3,seq_2)) is true.
+-- Query inj-event(bdx_eof_sent(sid_3,seq_2)) ==> inj-event(bdx_query_rcv_eof(sid_3,seq_2)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 159 rules (38 with conclusion selected). Queue: 8 rules.
+Starting query inj-event(bdx_eof_sent(sid_3,seq_2)) ==> inj-event(bdx_query_rcv_eof(sid_3,seq_2))
+goal reachable: b-inj-event(bdx_query_rcv_eof(SESSID_1,hash((SESSID_1,seq_2))),@occ53_1) -> inj-event(bdx_eof_sent(SESSID_1,hash((SESSID_1,seq_2))),@occ58_2)
+The hypothesis occurs strictly before the conclusion.
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+k_r2i_3 = k_r2i[!1 = @sid]
+blkSz_1 = blkSz[!1 = @sid]
+startOfs_2 = startOfs_1[!1 = @sid]
+deflen_2 = deflen_1[!1 = @sid]
+lenVal_2 = lenVal_1[!1 = @sid]
+k_i2r_3 = k_i2r[!1 = @sid]
+ptc_2 = ptc_1[!1 = @sid]
+ctrRI_2 = ctrRI_1[!1 = @sid]
+SRC_CTX_1 = SRC_CTX[!1 = @sid]
+ctrRA_2 = ctrRA[ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
+seq_2 = seq_1[ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid]
+ctrBQ_2 = ctrBQ_1[ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
+ctrBL_2 = ctrBL[ctBQ = aead_enc(k_i2r_3,BDX_BlockQuery(seq_2),nonce(SECFLAGS_UNICAST[],ctrBQ_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil)),aadBQ = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil),ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
+ctrBQ2_2 = ctrBQ2_1[ctBL = aead_enc(k_r2i_3,BDX_Block(seq_2,bdx_payload(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR)))),nonce(SECFLAGS_UNICAST[],ctrBL_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil)),aadBL_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil),ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
+@occ58_2 = @occ58_1[ctBQ2 = aead_enc(k_i2r_3,BDX_BlockQuery(hash((SESSID_1,seq_2))),nonce(SECFLAGS_UNICAST[],ctrBQ2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ2_2,nil,nil)),aadBQ2 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ2_2,nil,nil),ctBQ = aead_enc(k_i2r_3,BDX_BlockQuery(seq_2),nonce(SECFLAGS_UNICAST[],ctrBQ_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil)),aadBQ = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil),ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
+@occ53_1 = @occ53[ctBQ2 = aead_enc(k_i2r_3,BDX_BlockQuery(hash((SESSID_1,seq_2))),nonce(SECFLAGS_UNICAST[],ctrBQ2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ2_2,nil,nil)),aadBQ2 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ2_2,nil,nil),ctBQ = aead_enc(k_i2r_3,BDX_BlockQuery(seq_2),nonce(SECFLAGS_UNICAST[],ctrBQ_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil)),aadBQ = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil),ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
+RESULT inj-event(bdx_eof_sent(sid_3,seq_2)) ==> inj-event(bdx_query_rcv_eof(sid_3,seq_2)) is true.
+-- Query inj-event(bdx_query_rcv_eof(sid_3,seq_2)) ==> inj-event(bdx_query_sent_eof(sid_3,seq_2)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 159 rules (38 with conclusion selected). Queue: 8 rules.
+Starting query inj-event(bdx_query_rcv_eof(sid_3,seq_2)) ==> inj-event(bdx_query_sent_eof(sid_3,seq_2))
+goal reachable: b-inj-event(bdx_query_sent_eof(SESSID_1,hash((SESSID_1,seq_2))),@occ113_1) -> inj-event(bdx_query_rcv_eof(SESSID_1,hash((SESSID_1,seq_2))),@occ53_2)
+The hypothesis occurs strictly before the conclusion.
+Abbreviations:
+SESSID_1 = SESSID[!1 = @sid]
+k_r2i_3 = k_r2i[!1 = @sid]
+blkSz_1 = blkSz[!1 = @sid]
+startOfs_2 = startOfs_1[!1 = @sid]
+deflen_2 = deflen_1[!1 = @sid]
+lenVal_2 = lenVal_1[!1 = @sid]
+k_i2r_3 = k_i2r[!1 = @sid]
+ptc_2 = ptc_1[!1 = @sid]
+ctrRI_2 = ctrRI_1[!1 = @sid]
+SRC_CTX_1 = SRC_CTX[!1 = @sid]
+ctrRA_2 = ctrRA[ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
+seq_2 = seq_1[ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
+fwimg_1 = fwimg[!1 = @sid]
+ctrBQ_2 = ctrBQ_1[ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
+ctrBL_2 = ctrBL[ctBQ = aead_enc(k_i2r_3,BDX_BlockQuery(seq_2),nonce(SECFLAGS_UNICAST[],ctrBQ_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil)),aadBQ = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil),ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
+ctrBQ2_2 = ctrBQ2_1[ctBL = aead_enc(k_r2i_3,BDX_Block(seq_2,bdx_payload(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR)))),nonce(SECFLAGS_UNICAST[],ctrBL_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil)),aadBL_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil),ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
+@occ53_2 = @occ53_1[ctBQ2 = aead_enc(k_i2r_3,BDX_BlockQuery(hash((SESSID_1,seq_2))),nonce(SECFLAGS_UNICAST[],ctrBQ2_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ2_2,nil,nil)),aadBQ2 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ2_2,nil,nil),ctBQ = aead_enc(k_i2r_3,BDX_BlockQuery(seq_2),nonce(SECFLAGS_UNICAST[],ctrBQ_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil)),aadBQ = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBQ_2,nil,nil),ctRI = aead_enc(k_i2r_3,BDX_ReceiveInit(ptc_2,blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRI_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil)),aadRI = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRI_2,nil,nil),!1 = @sid]
+@occ113_1 = @occ113[ctBL = aead_enc(k_r2i_3,BDX_Block(seq_2,bdx_payload(fwimg_1,hash(fwimg_1),sign(hash(fwimg_1),sk(KM_VENDOR)))),nonce(SECFLAGS_UNICAST[],ctrBL_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil)),aadBL_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrBL_2,nil,nil),ctRA = aead_enc(k_r2i_3,BDX_ReceiveAccept(blkSz_1,startOfs_2,deflen_2,lenVal_2),nonce(SECFLAGS_UNICAST[],ctrRA_2,SRC_CTX_1),(MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil)),aadRA_1 = (MSGFLAGS[],SESSID_1,SECFLAGS_UNICAST[],ctrRA_2,nil,nil),!1 = @sid]
+RESULT inj-event(bdx_query_rcv_eof(sid_3,seq_2)) ==> inj-event(bdx_query_sent_eof(sid_3,seq_2)) is true.
 
 --------------------------------------------------------------
 Verification summary:
@@ -320,7 +414,11 @@ Query inj-event(bdx_block_rcv(sid_3,seq_2)) ==> inj-event(bdx_block_sent(sid_3,s
 
 Query inj-event(bdx_block_rcv(sid_3,seq_2)) ==> inj-event(bdx_query_sent(sid_3,seq_2)) is true.
 
-Query inj-event(bdx_complete(sid_3,dg_2,fw_2)) ==> inj-event(bdx_eof_sent(sid_3,dg_2)) is true.
+Query inj-event(bdx_complete(sid_3,dg_2)) ==> inj-event(bdx_eof_sent(sid_3,seq_2)) is true.
+
+Query inj-event(bdx_eof_sent(sid_3,seq_2)) ==> inj-event(bdx_query_rcv_eof(sid_3,seq_2)) is true.
+
+Query inj-event(bdx_query_rcv_eof(sid_3,seq_2)) ==> inj-event(bdx_query_sent_eof(sid_3,seq_2)) is true.
 
 --------------------------------------------------------------
 

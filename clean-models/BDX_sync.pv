@@ -222,7 +222,7 @@ query sid:bitstring, dg:bitstring, seq:bitstring;
 query sid:bitstring, seq:bitstring;
   event(bdx_eof_sent(sid, seq)) ==> inj-event(bdx_query_rcv_eof(sid, seq)).
 
-(* 5)
+(* 5)*)
 query sid:bitstring, seq:bitstring;
   event(bdx_query_rcv_eof(sid, seq)) ==> inj-event(bdx_query_sent_eof(sid, seq)).
  

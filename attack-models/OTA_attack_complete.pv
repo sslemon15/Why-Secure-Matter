@@ -459,9 +459,6 @@ Summary per query:
     The attacker can inject a fake QI_AVAIL with an arbitrary ‘tok’; Requestor
     will later send ApplyReq with a token never issued by the Provider.
 
-11. VersionAcceptedStrong(cur,nv) ==> issued(fw,nv) — TRUE
-    ‘VersionAcceptedStrong’ is raised only after successful Vendor signature
-    check on the image bound to ‘nv’; thus it implies Vendor issuance.
 
 12. not event(endP) — FALSE
     Provider termination is reachable in at least one honest trace.

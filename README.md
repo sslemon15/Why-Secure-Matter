@@ -1,7 +1,7 @@
 # Why Secure Matter? Formal Models & Attacks for the Matter Protocol
 
 > **Abstract**
-> This repository contains **ProVerif** models and execution traces to analyze key components of the **Matter** protocol, focusing on **OTA (Over-the-Air) updates**, **BDX** transfer. The **clean** models encode the intended security goals (authenticity, integrity, anti-rollback), while the **attack** models explore adverse conditions and abuse scenarios. The proofs document expected events (e.g., `VersionAccepted`, `OTAEnd`) and highlight when such guarantees may fail. The results help identify which properties hold under idealized variants and which degrade under weakened assumptions.
+> This repository contains **ProVerif** models and execution traces to analyze key components of the **Matter** protocol, focusing on **OTA (Over-the-Air) updates**, **BDX** transfer. The **clean** models encode the intended security goals (authenticity, integrity, anti-rollback), while the **attack** models explore adverse conditions and abuse scenarios. The proofs document expected events and highlight when such guarantees may fail. The results help identify which properties hold under idealized variants and which degrade under weakened assumptions.
 
 
 The repository contains the code and resources that supplement my work on the security analysis and evaluation of the Matter OTA Workflow. Below is an overview of the repository contents and structure.
@@ -20,7 +20,7 @@ The repository is organized into four main areas: `clean-models`, `attack-models
   *-:* `case.pv`, `case_resumption.pv`, `pase.pv` .
 
 * **outputs/** — ProVerif traces and results for reproducibility (execution logs and key events).
-  *-:* `OTA_Baseline.txt`, `BDX_sync.txt`, `OTA_attack_session.txt`, `OTA_attack_complete.txt`.
+  *-:* `OTA_Matter_baseline.txt`, `BDX_sync.txt`, `OTA_attack_session_keys.txt`, `OTA_attack_complete.txt`.
 
 ## Directory Tree
 
